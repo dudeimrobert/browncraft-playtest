@@ -1,0 +1,28 @@
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createMeshyFrogKnightRig, setMeshyWireframe, setMeshyWeightView, poseMeshyTPose } from './assets/meshy-frog-rig.js';
+import { resetFrogRigPose, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, poseFrogRigDeath, updateFrogRigSecondary } from './assets/frog-rig.js';
+const q=s=>document.querySelector(s), mount=q('#labViewport');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x090b09); scene.fog=new THREE.Fog(0x090b09,7,14);
+const camera=new THREE.PerspectiveCamera(34,1,.05,50); camera.position.set(5,3.1,7);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.shadowMap.enabled=true; renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12; mount.appendChild(renderer.domElement);
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const pmrem=new THREE.PMREMGenerator(renderer); const room=new RoomEnvironment();
+scene.environment=pmrem.fromScene(room,.04).texture;scene.environmentIntensity=.35;room.dispose();pmrem.dispose();
+const controls=new OrbitControls(camera,renderer.domElement); controls.enableDamping=true; controls.target.set(0,1.8,0); controls.minDistance=2.4; controls.maxDistance=12;
+scene.add(new THREE.HemisphereLight(0xcbd2be,0x1d1814,1.5)); const key=new THREE.DirectionalLight(0xffdfaf,3); key.position.set(4,6,5); key.castShadow=true;key.shadow.mapSize.set(2048,2048);Object.assign(key.shadow.camera,{left:-4,right:4,top:5,bottom:-3,near:.1,far:20});key.shadow.normalBias=.025; scene.add(key); const rim=new THREE.DirectionalLight(0x7290a0,1.2); rim.position.set(-5,3,-4); scene.add(rim);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(3.5,64),new THREE.MeshStandardMaterial({color:0x151813,roughness:1})); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+const grid=new THREE.GridHelper(7,14,0x75603b,0x252a22); grid.position.y=.006; grid.material.transparent=true; grid.material.opacity=.18; scene.add(grid);
+let model=null, anim='idle', speed=1, t=0, last=performance.now()/1000;
+const D={idle:4,walk:1.1,run:.78,combatIdle:3,block:2.4,light:.46,heavy:1,cast:.72,flask:.9,dodge:.55,hit:.48,death:1.35};
+function pose(name,p,clock){ resetFrogRigPose(model); switch(name){case'tpose':poseMeshyTPose(model);break;case'idle':poseFrogRigIdle(model,clock,1,false);break;case'walk':poseFrogRigIdle(model,clock,.4,false);poseFrogRigWalk(model,clock,1,false);break;case'run':poseFrogRigIdle(model,clock,.3,false);poseFrogRigWalk(model,clock*1.35,1.34,false);break;case'combatIdle':poseFrogRigIdle(model,clock,1,true);break;case'block':poseFrogRigBlock(model,clock,1);break;case'light':poseFrogRigAttack(model,'light',p);break;case'heavy':poseFrogRigAttack(model,'heavy',p);break;case'cast':poseFrogRigCast(model,p);break;case'flask':poseFrogRigFlask(model,p);break;case'dodge':poseFrogRigDodge(model,p);break;case'hit':poseFrogRigHit(model,p,1);break;case'death':poseFrogRigDeath(model,p);break;}}
+createMeshyFrogKnightRig({preview:true}).then(m=>{model=m; model.scale.setScalar(1.85); scene.add(model); const g=m.userData.meshyMesh.geometry;q('#viewportStats').textContent=`${g.attributes.position.count.toLocaleString()} vertices · ${(g.index.count/3).toLocaleString()} triangles · ${m.userData.skeleton.bones.length} bones · Rigid segmented salvage`;window.rigStudy={model:m,pose,renderer};}).catch(e=>{q('#viewportStats').textContent='Model failed to load'; console.error(e);});
+q('#animationSelect').addEventListener('change',e=>{anim=e.target.value;t=0;}); q('#speedRange').addEventListener('input',e=>{speed=+e.target.value;q('#speedOut').textContent=speed.toFixed(2)+'×';});
+q('#skeletonToggle').addEventListener('change',e=>{if(model?.userData?.skeletonHelper)model.userData.skeletonHelper.visible=e.target.checked;}); q('#wireframeToggle').addEventListener('change',e=>model&&setMeshyWireframe(model,e.target.checked));
+q('#turntableToggle').checked=false;
+q('#weightsToggle').addEventListener('change',e=>setMeshyWeightView(model,e.target.checked));
+q('#poseRange').addEventListener('input',e=>{q('#pauseToggle').checked=true;t=Number(e.target.value)*(D[anim]||1);});
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.view, r=8.3; if(v==='front')camera.position.set(0,1.8,r); if(v==='three')camera.position.set(5,3.1,7); if(v==='side')camera.position.set(r,1.8,0); if(v==='back')camera.position.set(0,1.8,-r); controls.target.set(0,1.8,0); controls.update();}));
+function resize(){const r=mount.getBoundingClientRect();renderer.setSize(Math.max(1,r.width),Math.max(1,r.height),false);camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix();} new ResizeObserver(resize).observe(mount); resize();
+function loop(ms){requestAnimationFrame(loop);const now=ms/1000,dt=Math.min(.05,Math.max(0,now-last));last=now;if(model){if(!q('#pauseToggle').checked)t+=dt*speed;const d=D[anim]||1,p=(t%d)/d;q('#poseRange').value=p;pose(anim,p,t);if(!['rest','tpose'].includes(anim)&&!q('#pauseToggle').checked)updateFrogRigSecondary(model,dt,{move:anim==='walk'?1:anim==='run'?1.4:0,action:['light','heavy','cast','dodge','hit'].includes(anim)?1:0,time:t});if(q('#turntableToggle').checked)model.rotation.y+=dt*.32;}controls.update();renderer.render(scene,camera);}requestAnimationFrame(loop);

@@ -1,0 +1,1 @@
+{"name":"browncraft-alpha-2-4-5","version":"2.4.5","private":true,"type":"module","scripts":{"test":"node tools/verify-alpha23.mjs"},"devDependencies":{"three":"0.184.0"}}

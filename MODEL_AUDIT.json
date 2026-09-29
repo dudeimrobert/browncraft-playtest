@@ -1,0 +1,72 @@
+[
+  {
+    "file": "ember-mushroom.glb",
+    "bytes": 323472,
+    "vertices": 10974,
+    "triangles": 4722,
+    "meshes": 2,
+    "skins": 0,
+    "animations": 0,
+    "materials": 0
+  },
+  {
+    "file": "fountain.glb",
+    "bytes": 969872,
+    "vertices": 930,
+    "triangles": 506,
+    "meshes": 2,
+    "skins": 0,
+    "animations": 0,
+    "materials": 2
+  },
+  {
+    "file": "frog-knight-repaired.glb",
+    "bytes": 29576212,
+    "vertices": 163195,
+    "triangles": 288654,
+    "meshes": 1,
+    "skins": 1,
+    "animations": 0,
+    "materials": 2
+  },
+  {
+    "file": "frog-knight-textured.glb",
+    "bytes": 16964480,
+    "vertices": 160554,
+    "triangles": 291738,
+    "meshes": 1,
+    "skins": 0,
+    "animations": 0,
+    "materials": 1
+  },
+  {
+    "file": "frog-knight-tpose.glb",
+    "bytes": 29577276,
+    "vertices": 163195,
+    "triangles": 288654,
+    "meshes": 1,
+    "skins": 1,
+    "animations": 0,
+    "materials": 2
+  },
+  {
+    "file": "willow_tree_optimized.glb",
+    "bytes": 4892912,
+    "vertices": 6788,
+    "triangles": 6258,
+    "meshes": 3,
+    "skins": 0,
+    "animations": 0,
+    "materials": 3
+  },
+  {
+    "file": "wood-sword.glb",
+    "bytes": 1318496,
+    "vertices": 481,
+    "triangles": 498,
+    "meshes": 1,
+    "skins": 0,
+    "animations": 0,
+    "materials": 1
+  }
+]

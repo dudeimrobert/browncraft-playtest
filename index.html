@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Browncraft — Alpha 2.4.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css?v=2.4.5" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <main id="app">
+    <section id="entry" class="entry-screen original-login">
+      <div class="original-login-bg-wrap" aria-hidden="true">
+        <img class="original-login-bg-fallback" src="./assets/login-bg.png" alt="" />
+        <video id="loginBgVideoA" class="original-login-bgvideo active" muted playsinline preload="auto" poster="./assets/login-bg.png"></video>
+        <video id="loginBgVideoB" class="original-login-bgvideo" muted playsinline preload="auto" poster="./assets/login-bg.png"></video>
+      </div>
+      <div class="original-login-vignette"></div>
+      <div class="original-login-bottomshade"></div>
+      <div class="original-login-content">
+        <div class="original-login-inner">
+          <img class="original-login-logo" src="./assets/title-browncraft-shadow.png" alt="Browncraft" />
+          <p class="original-login-realm">The Sundered Realm</p>
+          <div class="original-login-form">
+            <label>
+              <span>Name of record</span>
+              <input id="recordName" type="text" placeholder="wanderer" autocomplete="username" />
+            </label>
+            <label>
+              <span>Sigil</span>
+              <input id="recordSigil" type="password" placeholder="••••••••" autocomplete="current-password" />
+            </label>
+          </div>
+          <button id="loginBtn" class="original-login-primary" type="button">Sign In</button>
+          <div class="original-login-links">
+            <button id="guestBtn" type="button">Enter as guest</button>
+            <button id="createBtn" type="button" disabled title="Authentication will be added later">Forge new account</button>
+            <a class="character-lab-link" href="./character-lab.html">Character Lab</a>
+            <a class="character-lab-link" href="./rig-test.html">Imported Rig Test</a>
+          </div>
+        </div>
+      </div>
+      <div class="original-login-footer">
+        <span>Alpha 2.4.5 · A’JOL CROSSROADS</span>
+        <button id="soundBtn" type="button">Sound · On</button>
+      </div>
+    </section>
+
+
+    <section id="characterSelect" class="character-select" hidden>
+      <img class="character-bg" src="./assets/region-overview-bf.png" alt="" />
+      <div class="character-shade"></div>
+      <header class="character-header">
+        <div>
+          <img src="./assets/title-browncraft-shadow.png" alt="Browncraft" />
+          <span>Choose a Wanderer</span>
+        </div>
+        <button id="characterLogoutBtn" type="button">Log Out</button>
+      </header>
+      <div class="character-layout">
+        <section class="character-stage">
+          <div id="characterPreview" class="character-preview" aria-label="3D character preview"></div>
+          <div class="character-plaque">
+            <h1 id="selectedCharacterName">No Wanderer Selected</h1>
+            <p id="selectedCharacterPath">Create a new character to begin.</p>
+            <div id="selectedCharacterStats" class="character-stats"></div>
+          </div>
+        </section>
+        <aside class="character-roster">
+          <div class="roster-heading"><span>Your Wanderers</span><small id="rosterCount">0 / 8</small></div>
+          <div id="characterList" class="character-list"></div>
+          <div class="roster-actions">
+            <button id="newCharacterBtn" type="button">＋ New Character</button>
+            <button id="deleteCharacterBtn" type="button" class="quiet" disabled>Delete</button>
+          </div>
+          <button id="enterRealmBtn" class="enter-realm" type="button" disabled>Enter the Realm</button>
+        </aside>
+      </div>
+
+      <div id="newCharacterModal" class="character-modal" hidden>
+        <form id="newCharacterForm" class="creator-card">
+          <div class="creator-title"><span>Create Wanderer</span><button id="closeCreatorBtn" type="button">×</button></div>
+          <label class="creator-name"><span>Name</span><input id="newCharacterName" maxlength="18" autocomplete="off" placeholder="Name your wanderer" required /></label>
+          <div class="creator-label">Starting Discipline</div>
+          <div class="discipline-grid">
+            <button type="button" data-discipline="knight" class="active"><strong>Knight</strong><small>Balanced</small><em>Fiber 2 · Pressure 2 · Brown 2 · Gut 2</em></button>
+            <button type="button" data-discipline="brute"><strong>Brute</strong><small>Higher vitality</small><em>Fiber 4 · Pressure 2 · Brown 1 · Gut 1</em></button>
+            <button type="button" data-discipline="caster"><strong>Caster</strong><small>Stronger Brown</small><em>Fiber 1 · Pressure 1 · Brown 4 · Gut 2</em></button>
+            <button type="button" data-discipline="rogue"><strong>Rogue</strong><small>Faster stamina recovery</small><em>Fiber 1 · Pressure 2 · Brown 2 · Gut 3</em></button>
+          </div>
+          <p class="creator-note">Your discipline only shapes your starting strengths. Every wanderer can grow in any direction through Browncraft.</p>
+          <button class="creator-submit" type="submit">Create Character</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="game" class="game-shell" hidden>
+      <div id="worldMount" class="world-mount"></div>
+      <div class="vignette" aria-hidden="true"></div>
+
+      <header class="hud-top">
+        <div class="player-status">
+          <div class="player-title"><span id="playerName">The Wanderer</span><span id="levelLabel">Lv 1</span></div>
+          <div class="status-row"><span class="label">HP</span><div class="bar"><i id="hpBar"></i></div><span id="hpText">100 / 100</span></div>
+          <div class="status-row"><span class="label">Gut</span><div class="bar"><i id="stamBar"></i></div><span id="stamText">100 / 100</span></div>
+          <div class="status-row"><span class="label">Brown</span><div class="bar"><i id="brownBar"></i></div><span id="brownText">60 / 60</span></div>
+          <div class="essence-row"><span>Brown Essence</span><strong id="xpText">0 / 100</strong></div>
+        </div>
+        <div class="realm-status">
+          <button id="menuBtn" class="menu-button" aria-label="Open menu">◇ Menu</button>
+          <div id="regionName">A’jol</div>
+          <small id="modeLabel">ROAM</small>
+        </div>
+      </header>
+
+      <div id="targetHud" class="target-hud" hidden>
+        <div><span id="targetName">Enemy</span><span id="targetText">0 / 0</span></div>
+        <div class="bar enemy"><i id="targetBar"></i></div>
+      </div>
+
+      <div id="spellHud" class="spell-hud" aria-live="polite">
+        <div id="spellIcon" class="spell-icon" aria-hidden="true"></div>
+        <div><small>Selected Brown Spell</small><strong id="spellName">Brown Bolt</strong><span>E to switch · Q to cast</span></div>
+      </div>
+
+      <div id="bossHud" class="boss-hud" hidden>
+        <div class="boss-hud-heading"><strong id="bossHudName">Boss</strong><span id="bossHudStatus"></span></div>
+        <div class="boss-health-track"><i id="bossHudBar"></i></div>
+        <small id="bossHudText">0 / 0</small>
+      </div>
+
+      <div class="objective-wrap">
+        <div id="objectiveText" class="objective">Enter the Weeping Fjarts and survive your first hunt.</div>
+        <div id="logText" class="logline">You wake at A’jol.</div>
+        <button id="interactBtn" class="context-btn" hidden>Interact</button>
+      </div>
+
+      <div id="desktopControls" class="desktop-controls">
+        <button data-act="light">Light<br><small>J / 1</small></button>
+        <button data-act="heavy">Heavy<br><small>K / 2</small></button>
+        <button data-act="cast"><span data-spell-label>Brown Bolt</span><br><small>Q</small></button>
+        <button data-act="dodge">Dodge<br><small>Space</small></button>
+        <button data-block="true">Guard<br><small>Shift</small></button>
+        <button data-act="flask">Flask<br><small>F / 3</small></button>
+      </div>
+
+      <div id="mobileControls" class="mobile-controls" hidden>
+        <div id="movePad" class="move-pad" aria-label="Movement pad">
+          <div id="moveKnob" class="move-knob"></div>
+        </div>
+        <div class="mobile-actions">
+          <button data-act="light">⚔</button>
+          <button data-act="heavy">✦</button>
+          <button data-act="cast" aria-label="Cast Brown Bolt"><span data-spell-label>Bolt</span></button>
+          <button data-act="dodge">↻</button>
+          <button data-block="true">▣</button>
+          <button data-act="flask">◒</button>
+        </div>
+      </div>
+
+      <aside id="menu" class="pause-menu" hidden>
+        <nav>
+          <button class="tab active" data-tab="character">Character</button>
+          <button class="tab" data-tab="inventory">Inventory</button>
+          <button class="tab" data-tab="equipment">Equipment</button>
+          <button class="tab" data-tab="settings">Settings</button>
+          <button id="resumeBtn" class="resume">Resume</button>
+        </nav>
+        <section id="menuPanel" class="menu-panel"></section>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="./assets/world3d.js?v=2.4.5"></script>
+  <script type="module" src="./app.js?v=2.4.5"></script>
+</body>
+</html>
