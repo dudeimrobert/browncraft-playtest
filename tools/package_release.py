@@ -3,7 +3,7 @@ from pathlib import Path
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-release = "Browncraft_Alpha_2.4.5"
+release = "Browncraft_Alpha_2.4.8"
 output = root.parent / f"{release}.zip"
 with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
     for file in sorted(root.rglob("*")):
@@ -24,7 +24,7 @@ with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
             "tools/repair_hero.py",
         }:
             continue
-        if relative.name.startswith("ALPHA_") and relative.name != "ALPHA_2.4.5_NOTES.md":
+        if relative.name.startswith("ALPHA_") and relative.name != "ALPHA_2.4.8_NOTES.md":
             continue
         if relative.name in {"BUILD_1.0_NOTES.md", "meshy-frog-rig-alpha20.js"}:
             continue
@@ -33,6 +33,8 @@ with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
 with zipfile.ZipFile(output) as archive:
     assert archive.testzip() is None
     assert f"{release}/assets/models/frog-knight-repaired.glb" in archive.namelist()
+    assert f"{release}/assets/models/fantasy-x-tree-08.glb" in archive.namelist()
+    assert f"{release}/assets/ajol/trader-billboard.png" in archive.namelist()
     assert archive.getinfo(f"{release}/assets/models/frog-knight-repaired.glb").file_size < 25 * 1024 * 1024
     assert not any(name.endswith(("frog-knight-tpose.glb", "frog-knight-textured.glb", ".vuldross-guardian.glb.nrJM73")) for name in archive.namelist())
     for guardian in ("mournwillow-guardian.glb", "vuldross-guardian.glb", "cindergut-guardian.glb"):

@@ -29,7 +29,7 @@ const server=http.createServer((req,res)=>{
     await page.screenshot({path:path.join(output,pose+'.png')});
   }
   await page.goto(url+'/');await page.click('#guestBtn');await page.click('#newCharacterBtn');
-  await page.fill('#newCharacterName','Alpha 2.4.5 QA');
+  await page.fill('#newCharacterName','Alpha 2.4.8 QA');
   await page.locator('#newCharacterForm').evaluate(f=>f.requestSubmit());await page.click('#enterRealmBtn');
   await page.waitForFunction(()=>document.querySelector('world-3d')?.hearthPortal,{timeout:120000});
   await page.evaluate(()=>{const w=document.querySelector('world-3d');w.playerObj.position.copy(w.hearthPortal.position);w.updateInteract();w.emit();});

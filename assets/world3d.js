@@ -1,9 +1,9 @@
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.4.5';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.4.8';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.4.5';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.4.5';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.4.8';
+import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.4.8';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -164,7 +164,8 @@ class World3D extends HTMLElement {
 
     this.gltfLoader = new GLTFLoader();
     this.modelAssets = {};
-    await this.loadModelAssets();
+    this.textureAssets = {};
+    await Promise.all([this.loadModelAssets(), this.loadTextureAssets()]);
 
     this.buildMarkers();
     await this.buildZone(this.zone,'pootal');
@@ -193,6 +194,7 @@ class World3D extends HTMLElement {
   async loadModelAssets() {
     const specs = {
       willow: 'assets/models/willow_tree_optimized.glb',
+      ajolTree: 'assets/models/fantasy-x-tree-08.glb',
       fountain: 'assets/models/fountain.glb',
       mushroom: 'assets/models/ember-mushroom.glb',
       guardianFords: 'assets/models/mournwillow-guardian.glb',
@@ -232,6 +234,51 @@ class World3D extends HTMLElement {
         console.warn(`Browncraft: optional model failed to load: ${key}`, err);
       }
     }));
+  }
+
+  async loadTextureAssets() {
+    try {
+      const loader = new THREE.TextureLoader();
+      const source = await loader.loadAsync('assets/ajol/trader-billboard.png');
+      const image = source.image;
+      const colorCanvas = document.createElement('canvas');
+      colorCanvas.width = image.naturalWidth || image.width;
+      colorCanvas.height = image.naturalHeight || image.height;
+      const colorCtx = colorCanvas.getContext('2d', { willReadFrequently: true });
+      colorCtx.drawImage(image, 0, 0);
+      const colorData = colorCtx.getImageData(0, 0, colorCanvas.width, colorCanvas.height);
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = colorCanvas.width;
+      maskCanvas.height = colorCanvas.height;
+      const maskCtx = maskCanvas.getContext('2d');
+      const maskData = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
+      for (let i = 0; i < colorData.data.length; i += 4) {
+        const r = colorData.data[i], g = colorData.data[i + 1], b = colorData.data[i + 2];
+        const hi = Math.max(r, g, b), lo = Math.min(r, g, b);
+        const neutral = hi - lo < 18;
+        const light = (r * 0.3 + g * 0.59 + b * 0.11);
+        let alpha = colorData.data[i + 3];
+        if (neutral && light >= 205) alpha = 0;
+        else if (neutral && light > 180) alpha = Math.round(alpha * (205 - light) / 25);
+        colorData.data[i + 3] = alpha;
+        maskData.data[i] = maskData.data[i + 1] = maskData.data[i + 2] = 255;
+        maskData.data[i + 3] = alpha;
+      }
+      colorCtx.putImageData(colorData, 0, 0);
+      maskCtx.putImageData(maskData, 0, 0);
+      const color = new THREE.CanvasTexture(colorCanvas);
+      const mask = new THREE.CanvasTexture(maskCanvas);
+      for (const texture of [color, mask]) {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+      }
+      source.dispose();
+      this.textureAssets.trader = { color, mask, aspect: colorCanvas.width / colorCanvas.height };
+    } catch (err) {
+      console.warn('Browncraft: trader billboard texture failed to load', err);
+    }
   }
 
   cloneModelAsset(key, targetSize, opts = {}) {
@@ -582,7 +629,7 @@ class World3D extends HTMLElement {
         else if (r > 0.2) this.rootMound(x, y, 0.56 + r * 0.52);
         else this.mushroomCluster(x, y, 0.52 + r * 0.42, false);
       } else if (this.zone.id === 'hearth') {
-        if (r > 0.66) this.willowTree(x, y, 0.55 + r * 0.58);
+        if (r > 0.66) this.placeAjolTreeModel(x, y, r, i);
         else if (r > 0.34) this.rootMound(x, y, 0.55 + r * 0.5);
         else this.mushroomCluster(x, y, 0.52 + r * 0.4, false);
       } else if (this.zone.id === 'steppe') {
@@ -682,6 +729,25 @@ class World3D extends HTMLElement {
     const pos = this.worldPos(x, y, 0.01);
     tree.position.add(pos);
     tree.rotation.y = ((x * 29 + y * 41) % 360) * Math.PI / 180;
+    this.zoneGroup.add(tree);
+    return tree;
+  }
+
+  placeAjolTreeModel(x, y, sizeSeed=0.5, index=0) {
+    // Stable pseudo-random variation keeps A'jol visually varied without trees
+    // changing size or orientation every time the realm is rebuilt.
+    const hash = (x * 92821 + y * 68917 + index * 811) >>> 0;
+    const heightVariation = 5.1 + (((hash % 1000) / 999) * 2.9); // 5.1–8.0 world units
+    const tree = this.cloneModelAsset('ajolTree', heightVariation, { axis: 'y' });
+    if (!tree) return this.willowTree(x, y, 0.55 + sizeSeed * 0.58);
+    tree.position.add(this.worldPos(x, y, 0.01));
+    tree.rotation.y = (((hash >>> 3) % 360) * Math.PI) / 180;
+    const widthX = 0.91 + (((hash >>> 7) % 18) / 100);
+    const widthZ = 0.91 + (((hash >>> 12) % 18) / 100);
+    tree.scale.x *= widthX;
+    tree.scale.z *= widthZ;
+    tree.userData.ajolTree = true;
+    tree.userData.targetHeight = heightVariation;
     this.zoneGroup.add(tree);
     return tree;
   }
@@ -877,11 +943,10 @@ class World3D extends HTMLElement {
     this.addInteract('crystal', 'the Brownwell fountain', 'Commune with', fountainGroup, 4.1, () => this.levelUp());
 
     const mPos = at(0.22, 0.42);
-    const merchant = this.figure(0x8a6a44, 0x5c4a30, 0x8fae7a, 0xe7c98a, 0x7a6248);
-    merchant.scale.setScalar(1.1);
+    const merchant = this.buildTraderBillboard();
     merchant.position.copy(this.worldPos(mPos.x, mPos.y));
-    merchant.userData.arm.rotation.x = -0.9;
     this.zoneGroup.add(merchant);
+    this.merchantBillboard = merchant;
     const stall = new THREE.Group();
     const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 1.4), new THREE.MeshStandardMaterial({ color: 0x6b5a3f, roughness: 0.9 })); top.position.y = 1.5; top.castShadow = true; stall.add(top);
     [-0.95,0.95].forEach(dx => { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,1.5,6), new THREE.MeshStandardMaterial({ color: 0x5d4c34, roughness: 1 })); post.position.set(dx,0.75,-0.5); post.castShadow = true; stall.add(post); });
@@ -921,6 +986,40 @@ class World3D extends HTMLElement {
     this.addInteract('anvil', 'the anvil', 'Work', anvilBase, 3.4, () => this.workAnvil());
 
     this.buildPootal(.5,.14);
+  }
+
+  buildTraderBillboard() {
+    const asset = this.textureAssets?.trader;
+    if (!asset) {
+      const fallback = this.figure(0x8a6a44, 0x5c4a30, 0x8fae7a, 0xe7c98a, 0x7a6248);
+      fallback.scale.setScalar(1.1);
+      fallback.userData.arm.rotation.x = -0.9;
+      return fallback;
+    }
+    const group = new THREE.Group();
+    group.name = 'ajol-trader-billboard';
+    const height = 3.65, width = height * asset.aspect;
+    const geometry = new THREE.PlaneGeometry(width, height);
+    const backMaterial = new THREE.MeshBasicMaterial({ map: asset.mask, color: 0x3b2619, transparent: true, alphaTest: 0.06, side: THREE.DoubleSide });
+    [-0.09, -0.045].forEach((z, i) => {
+      const backing = new THREE.Mesh(geometry, backMaterial);
+      backing.position.set(i ? 0.035 : -0.035, height * 0.5, z);
+      backing.userData.modelAsset = 'traderBillboard';
+      group.add(backing);
+    });
+    const front = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: asset.color, transparent: true, alphaTest: 0.045, side: THREE.DoubleSide }));
+    front.position.y = height * 0.5;
+    front.castShadow = true;
+    front.userData.modelAsset = 'traderBillboard';
+    group.add(front);
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.55, 32), new THREE.MeshBasicMaterial({ color: 0x15100b, transparent: true, opacity: 0.3, depthWrite: false }));
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.scale.set(1.85, 0.62, 1);
+    shadow.position.set(-0.65, 0.025, 0);
+    group.add(shadow);
+    group.userData.billboard = true;
+    group.userData.displayHeight = height;
+    return group;
   }
 
   buildPootal(fx=.5,fy=.86) {
@@ -996,10 +1095,10 @@ class World3D extends HTMLElement {
     this.emit();
   }
 
-  saveProgress() {
+  saveProgress(overrides = {}) {
     try {
       const s = this.state;
-      localStorage.setItem(this.saveKey, JSON.stringify({ characterName:s.characterName, discipline:s.discipline, level:s.level, xp:s.xp, growthFocus:s.growthFocus, vitality:s.vitality, might:s.might, arcana:s.arcana, endurance:s.endurance, bossDefeated:s.bossDefeated, bossKills:s.bossKills, pootalKeys:s.pootalKeys, zone:s.zone }));
+      localStorage.setItem(this.saveKey, JSON.stringify({ characterName:s.characterName, discipline:s.discipline, level:s.level, xp:s.xp, growthFocus:s.growthFocus, vitality:s.vitality, might:s.might, arcana:s.arcana, endurance:s.endurance, bossDefeated:s.bossDefeated, bossKills:s.bossKills, pootalKeys:s.pootalKeys, zone:s.zone, ...overrides }));
     } catch (_) {}
   }
 
@@ -1242,7 +1341,7 @@ class World3D extends HTMLElement {
     this.buildWater();
     this.buildProps();
     await this.buildActors(fromDir);
-    this.interactables = [];this.hearthPortal=null;this.hearthCrystal=null;this.state.interact=null;
+    this.interactables = [];this.hearthPortal=null;this.hearthCrystal=null;this.merchantBillboard=null;this.state.interact=null;
     if (zone.id === 'hearth') this.buildHearthFeatures();else this.buildPootal();
     if(fromDir==='pootal'){const t=this.nearestWalkable(this.pootalTile.x,this.pootalTile.y+2)||this.pootalTile;this.spawn=t;this.playerObj.position.copy(this.worldPos(t.x,t.y));}
 
@@ -1506,10 +1605,29 @@ class World3D extends HTMLElement {
     if (from) this.slide(this.playerObj, new THREE.Vector3().subVectors(this.playerObj.position, from.obj.position).setY(0).normalize(), 0.3);
     if (this.state.hp === 0) {
       this.state.mode = 'dead';
-      this.state.log = 'Your light goes out. The realm remembers nothing.';
+      this.state.log = 'Your light goes out. A’jol calls you home.';
+      this.state.target = null;
+      this.state.bossBattle = false;
+      this.state.bossHud = null;
+      this.state.blocking = false;
+      this.state.slowed = false;
+      this.state.pootalDialog = null;
+      this.state.bossDialog = null;
+      this.pendingBoss = null;
+      this.act_ = null;
+      this.dodging = null;
+      this.stagger = 0;
+      this.slowT = 0;
+      this.blocking = false;
+      this.move = { x: 0, y: 0 };
+      this.keys = {};
       this.lockOn = null;
       this.lockRing.visible = false;
+      this.tellRing.material.opacity = 0;
       this.controls.enableRotate = true;
+      this.enemies.forEach(e=>{ this.clearEnemyAttack(e); e.engaged=false; e.ai='idle'; });
+      // A later quit/reload must never place a dead character back in the fatal realm.
+      this.saveProgress({zone:'hearth'});
     } else {
       this.state.log = `${from ? from.name : 'Something'} lands a blow for ${taken}.`;
     }
@@ -1654,6 +1772,36 @@ class World3D extends HTMLElement {
     this.say('You wake again at the crossroads.');
   }
 
+  async respawnAtAjol() {
+    if (this.state.mode !== 'dead' || this._travelling) return false;
+    this._travelling = true;
+    this.state.loading = { name: ZONES.hearth.name, blurb: ZONES.hearth.blurb, from: this.zone.name };
+    try {
+      await this.buildZone(ZONES.hearth, 'pootal');
+      Object.assign(this.state, {
+        mode: 'roam', hp: this.state.hpMax, stam: this.state.stamMax, focus: this.state.focusMax,
+        flasks: this.state.flasksMax, target: null, blocking: false, bossBattle: false,
+        bossHud: null, slowed: false, pootalDialog: null, bossDialog: null
+      });
+      this.act_ = null; this.dodging = null; this.stagger = 0; this.slowT = 0; this.blocking = false;
+      this.state.log = 'You wake again at A’jol. The Brown has not finished with you.';
+      this.state.objective = 'Approach or select the Pootal to choose your next realm.';
+      this.saveProgress({zone:'hearth'});
+      return true;
+    } catch (error) {
+      console.error('Respawn at A’jol failed', error);
+      this.state.mode = 'dead';
+      this.state.log = 'The way back to A’jol faltered. Try again.';
+      return false;
+    } finally {
+      this.state.loading = null;
+      this._travelling = false;
+      this.paused = false;
+      this.state.paused = false;
+      this.emit();
+    }
+  }
+
   rest() {
     if (this.state.mode === 'fight') { this.say('Not while something is still swinging at you.'); return; }
     this.state.hp = this.state.hpMax;
@@ -1700,6 +1848,7 @@ class World3D extends HTMLElement {
       this.keys[k] = true;
       if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(k)) ev.preventDefault();
       if (this.paused) return;
+      if (this.state.mode === 'dead') return;
       if (k === '1' || k === 'j') this.strike('light');
       else if (k === '2' || k === 'k') this.strike('heavy');
       else if (k === 'q') this.cast();
@@ -1709,7 +1858,6 @@ class World3D extends HTMLElement {
       else if (k === ' ') this.dodge();
       else if (k === 'Shift') this.setBlock(true);
       else if (k === 'Tab') this.pickLock(1);
-      else if (k === 'r' && this.state.mode === 'dead') this.reset();
     };
     this._keyUp = ev => {
       const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
@@ -1739,6 +1887,11 @@ class World3D extends HTMLElement {
     if (this.water && this.water.material) { this.water.material.opacity = (this.zone.id === 'steppe' ? 0.52 : this.zone.id === 'ember' ? 0.62 : 0.74) + Math.sin(time * 0.55) * 0.03; }
     if (this.ambientFX) this.ambientFX.forEach((f,i)=>{ f.sp.position.y += Math.sin(time*f.speed+f.phase)*0.0018; f.sp.material.opacity = (this.zone.id === 'steppe' ? 0.08 : 0.16) + (Math.sin(time*(0.8+f.speed)+f.phase)+1)*0.18; });
     if (this.mistFX) this.mistFX.forEach((m,i)=>{ m.sp.position.x += Math.sin(time*m.speed+m.phase)*0.002; m.sp.position.z += Math.cos(time*m.speed*0.8+m.phase)*0.002; m.sp.material.opacity = (this.zone.id === 'steppe' ? 0.04 : 0.08) + (Math.sin(time*m.speed+m.phase)+1)*0.025; });
+    if (this.merchantBillboard?.userData?.billboard) {
+      const dx = this.camera.position.x - this.merchantBillboard.position.x;
+      const dz = this.camera.position.z - this.merchantBillboard.position.z;
+      this.merchantBillboard.rotation.y = Math.atan2(dx, dz);
+    }
 
     if ((this.hitStop || 0) > 0) { this.hitStop = Math.max(0, this.hitStop - dt); this.updateCamera(dt * 0.2); this.updatePopups(dt * 0.2); return; }
     if (this.paused) { this.updatePopups(dt); this.updateCamera(dt); return; }

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Browncraft — Alpha 2.4.5</title>
+  <title>Browncraft — Alpha 2.4.8</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=2.4.5" />
+  <link rel="stylesheet" href="./styles.css?v=2.4.8" />
   <script type="importmap">
   {
     "imports": {
@@ -51,7 +51,7 @@
         </div>
       </div>
       <div class="original-login-footer">
-        <span>Alpha 2.4.5 · A’JOL CROSSROADS</span>
+        <span>Alpha 2.4.8 · TRADER BILLBOARD</span>
         <button id="soundBtn" type="button">Sound · On</button>
       </div>
     </section>
@@ -107,6 +107,19 @@
     <section id="game" class="game-shell" hidden>
       <div id="worldMount" class="world-mount"></div>
       <div class="vignette" aria-hidden="true"></div>
+
+      <section id="deathScreen" class="death-screen" role="dialog" aria-modal="true" aria-labelledby="deathTitle" hidden>
+        <div class="death-veil" aria-hidden="true"></div>
+        <div class="death-content">
+          <p>The Brown claims another wanderer</p>
+          <h1 id="deathTitle">You Died</h1>
+          <span>Your progress remains. Return to A’jol and begin again.</span>
+          <div class="death-actions">
+            <button id="deathContinueBtn" type="button">Continue at A’jol</button>
+            <button id="deathQuitBtn" type="button">Quit to Character Select</button>
+          </div>
+        </div>
+      </section>
 
       <header class="hud-top">
         <div class="player-status">
@@ -181,7 +194,7 @@
     </section>
   </main>
 
-  <script type="module" src="./assets/world3d.js?v=2.4.5"></script>
-  <script type="module" src="./app.js?v=2.4.5"></script>
+  <script type="module" src="./assets/world3d.js?v=2.4.8"></script>
+  <script type="module" src="./app.js?v=2.4.8"></script>
 </body>
 </html>

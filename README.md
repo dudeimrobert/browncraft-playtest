@@ -1,5 +1,5 @@
-Browncraft Alpha 2.4.5
+Browncraft Alpha 2.4.8
 
 Run the folder from a local HTTP server, then open `index.html`.
 
-See `START_HERE.md` to run the build and `ALPHA_2.4.5_NOTES.md` for verified changes and known limits.
+See `START_HERE.md` to run the build and `ALPHA_2.4.8_NOTES.md` for verified changes and known limits.

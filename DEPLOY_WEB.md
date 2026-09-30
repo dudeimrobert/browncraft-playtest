@@ -1,4 +1,4 @@
-# Browncraft Alpha 2.4.5 — Web Playtest
+# Browncraft Alpha 2.4.8 — Web Playtest
 
 This folder is already a static browser build. It does not require a database,
 application server, or build step. The host must serve this folder over HTTPS
@@ -49,7 +49,7 @@ published root. No build command is required and the publish directory is `.`.
 
 ## Acceptance check after publishing
 
-1. Confirm the title reads `Alpha 2.4.5 · A’JOL CROSSROADS`.
+1. Confirm the title reads `Alpha 2.4.8 · TRADER BILLBOARD`.
 2. Enter as guest, create a character, and enter A'jol.
 3. Confirm the Frog Knight, terrain, music, and portal load without 404 errors.
 4. Traverse to Weeping Fjarts and reload the page once to confirm the local save.

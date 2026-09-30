@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.4.5';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.4.5';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.4.8';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.4.8';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -11,6 +11,9 @@ const menu = q('#menu');
 const panel = q('#menuPanel');
 const desktopControls = q('#desktopControls');
 const mobileControls = q('#mobileControls');
+const deathScreen = q('#deathScreen');
+const deathContinueBtn = q('#deathContinueBtn');
+const deathQuitBtn = q('#deathQuitBtn');
 const loginBgVideos = [q('#loginBgVideoA'), q('#loginBgVideoB')].filter(Boolean);
 const LOGIN_BG_VIDEO = './assets/login-bg-video.mp4';
 
@@ -92,6 +95,29 @@ let selectedDiscipline = 'knight';
 let preview = null;
 let authMode = 'guest';
 let skeletonDebug = false;
+let deathRevealTimer = null;
+
+function hideDeathScreen(){
+  clearTimeout(deathRevealTimer); deathRevealTimer = null;
+  deathScreen.classList.remove('visible','ready');
+  deathScreen.hidden = true;
+  deathContinueBtn.disabled = false;
+  deathQuitBtn.disabled = false;
+}
+
+function showDeathScreen(){
+  if(!deathScreen.hidden) return;
+  deathScreen.hidden = false;
+  deathContinueBtn.disabled = true;
+  deathQuitBtn.disabled = true;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>deathScreen.classList.add('visible')));
+  deathRevealTimer = setTimeout(()=>{
+    deathScreen.classList.add('ready');
+    deathContinueBtn.disabled = false;
+    deathQuitBtn.disabled = false;
+    deathContinueBtn.focus();
+  }, 1450);
+}
 
 const SOUND_KEY = 'browncraft-sound-enabled';
 const titleMusic = new Audio('./assets/an-intro.mp3');
@@ -331,6 +357,7 @@ function showOnly(section){
   characterSelect.hidden = section !== 'characters';
   game.hidden = section !== 'game';
   document.body.classList.toggle('in-game', section === 'game');
+  if(section !== 'game') hideDeathScreen();
 }
 function openCharacterSelect(){
   stopRealmMusic();
@@ -424,6 +451,7 @@ function startGame(profile){
   stopRealmMusic();
   if(soundEnabled) primeRealmMusic('hearth');
   showOnly('game');
+  hideDeathScreen();
   destroyWorld();
   world=document.createElement('world-3d');
   world.id='world';
@@ -434,6 +462,7 @@ function startGame(profile){
   requestAnimationFrame(()=>world.resize?.());
 }
 function destroyWorld(){
+  hideDeathScreen();
   if(world){ try{ world.setPaused?.(true); world.remove(); }catch(_){} world=null; state=null; }
   worldMount.innerHTML=''; menu.hidden=true;
 }
@@ -448,6 +477,7 @@ applyLayout();
 function renderHud(s){
   renderPootalDialog(s);
   renderBossDialog(s);
+  if(s.mode === 'dead') showDeathScreen();
   q('#levelLabel').textContent = `Lv ${s.level}`;
   q('#playerName').textContent = s.characterName || selectedProfile()?.name || 'The Wanderer';
   q('#hpBar').style.width = pct(s.hp,s.hpMax); q('#hpText').textContent = `${Math.ceil(s.hp)} / ${s.hpMax}`;
@@ -470,6 +500,20 @@ function renderHud(s){
   ib.classList.toggle('pootal-cta',s.interact?.id==='portal');
   if(!menu.hidden) renderMenu();
 }
+
+deathContinueBtn.addEventListener('click', async()=>{
+  if(!world || state?.mode !== 'dead') return;
+  deathContinueBtn.disabled = true; deathQuitBtn.disabled = true;
+  deathContinueBtn.textContent = 'Returning to A’jol…';
+  const returned = await world.respawnAtAjol?.();
+  deathContinueBtn.textContent = 'Continue at A’jol';
+  if(returned) hideDeathScreen();
+  else { deathContinueBtn.disabled = false; deathQuitBtn.disabled = false; }
+});
+deathQuitBtn.addEventListener('click',()=>{
+  if(state?.mode !== 'dead') return;
+  openCharacterSelect();
+});
 
 function openMenu(){ if(!world||state?.pootalDialog||state?.loading)return; menu.hidden=false; world.setPaused?.(true); renderMenu(); }
 function closeMenu(){ menu.hidden=true; world?.setPaused?.(false); }
