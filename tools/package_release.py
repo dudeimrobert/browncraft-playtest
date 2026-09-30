@@ -3,7 +3,7 @@ from pathlib import Path
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-release = "Browncraft_Alpha_2.4.8"
+release = "Browncraft_Alpha_2.4.9"
 output = root.parent / f"{release}.zip"
 with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
     for file in sorted(root.rglob("*")):
@@ -24,7 +24,7 @@ with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
             "tools/repair_hero.py",
         }:
             continue
-        if relative.name.startswith("ALPHA_") and relative.name != "ALPHA_2.4.8_NOTES.md":
+        if relative.name.startswith("ALPHA_") and relative.name != "ALPHA_2.4.9_NOTES.md":
             continue
         if relative.name in {"BUILD_1.0_NOTES.md", "meshy-frog-rig-alpha20.js"}:
             continue

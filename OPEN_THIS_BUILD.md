@@ -1,9 +1,9 @@
-# Browncraft 2.4.8 — TRADER BILLBOARD
+# Browncraft 2.4.9 — GPU PERFORMANCE
 
 Extract this complete ZIP into a new folder. Do not merge with an old build.
 In Terminal type `python3 ` (including the space), drag `launch.py` from this folder into Terminal, then press Enter.
 The launcher opens a new localhost address and always serves its own folder with caching disabled. If your browser does not open, use the address printed in Terminal.
-Confirm the title screen reads `Alpha 2.4.8 · TRADER BILLBOARD`.
+Confirm the title screen reads `Alpha 2.4.9 · GPU PERFORMANCE`.
 
 Near the A’jol portal, click the portal or “Traverse the Brown” to open realm selection. No boundary travel is available. Mournwillow, Vuldross and Cindergut wait at the far ends of their realms. Their first engagement opens a short warning dialogue; defeating them awards the corresponding Guardian Fragment and awakens the return Pootal.
 

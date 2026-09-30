@@ -1,6 +1,16 @@
-# Alpha 2.4.8 — Trader Billboard
+# Alpha 2.4.9 — GPU Performance Pass
 
-This update replaces A’jol’s procedural merchant figure with the supplied cardboard Trader artwork while retaining the A’jol tree replacement and complete death-and-respawn flow.
+This update retains the A’jol Trader billboard, imported trees, and gameplay from 2.4.8 while reducing rendering work across the game.
+
+## Performance changes
+
+- Adaptive render resolution: starts at at most 1.25 device pixels per CSS pixel, adjusts every two seconds toward the current frame rate, and stays within 0.75–1.25. This lowers full-screen pixel/shader work on high-density displays.
+- Distant guardians switch to a small procedural silhouette until the camera approaches; their full models and combat rigs remain in place up close. The hero model is intentionally unchanged to preserve animation and texture quality.
+- The sun shadow map drops from 1024 to 768 pixels. Static scenery and A’jol tree instances no longer cast expensive realtime shadows; active characters still can.
+- A’jol’s imported GLB tree meshes render in instanced batches instead of a separate set of draw calls per tree. Their deterministic height, rotation, and width variation remain.
+- Zone cleanup retains imported shared geometry/materials across realm transitions and releases instance buffers.
+
+The actual FPS improvement depends on browser, GPU, resolution, and realm. This is a conservative pass, not a claim that all character meshes have been decimated.
 
 ## Changes
 

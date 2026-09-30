@@ -1,9 +1,9 @@
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.4.8';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.4.9';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.4.8';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.4.8';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.4.9';
+import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.4.9';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -131,7 +131,9 @@ class World3D extends HTMLElement {
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.5, 400);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    // Bound fill-rate on high-DPI displays; adjust slowly from observed frame times.
+    this._renderScale = Math.min(window.devicePixelRatio || 1, 1.25);
+    renderer.setPixelRatio(this._renderScale);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -156,7 +158,7 @@ class World3D extends HTMLElement {
     const sun = new THREE.DirectionalLight(0xffd9a0, 1.7);
     sun.position.set(-28, 40, 18);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(768, 768);
     Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 70, bottom: -70, far: 160 });
     sun.shadow.bias = -0.0007;
     scene.add(sun);
@@ -178,14 +180,29 @@ class World3D extends HTMLElement {
     this.emit();
 
     let last = performance.now();
+    let frameSeconds = 0, frameCount = 0;
     const loop = () => {
       this._raf = requestAnimationFrame(loop);
       const now = performance.now();
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
+      if (dt < 0.1 && !document.hidden) {
+        frameSeconds += dt; frameCount++;
+        if (frameSeconds >= 2 && frameCount >= 20) {
+          const fps = frameCount / frameSeconds;
+          const ceiling = Math.min(window.devicePixelRatio || 1, 1.25);
+          const next = Math.max(0.75, Math.min(ceiling, this._renderScale + (fps < 48 ? -0.1 : fps > 57 ? 0.05 : 0)));
+          if (Math.abs(next - this._renderScale) > 0.01) {
+            this._renderScale = next;
+            renderer.setPixelRatio(next);
+          }
+          frameSeconds = 0; frameCount = 0;
+        }
+      }
       this._t = (this._t || 0) + dt;
       this.update(dt, this._t);
       controls.update();
+      this.updateModelLod(now);
       renderer.render(scene, this.camera);
     };
     loop();
@@ -308,7 +325,15 @@ class World3D extends HTMLElement {
     const attackPivot=new THREE.Group();attackPivot.name=`${key}-attack-pivot`;rig.add(attackPivot);
     const ring=this.actorRing(0xd9752b);ring.scale.setScalar(1.65);rig.add(ring);
     rig.userData.rig=true;rig.userData.guardianRig=true;rig.userData.bones={root:rootBone};rig.userData.skeleton=new THREE.Skeleton([rootBone]);rig.userData.arm=attackPivot;rig.userData.ring=ring;
-    rig.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.userData.modelAsset=key;}});
+    rig.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=true;o.userData.modelAsset=key;}});
+    // Distant guardians use a cheap silhouette; the full imported mesh remains
+    // available at combat distance and all combat/animation objects stay intact.
+    const proxy=new THREE.Group();
+    const mat=new THREE.MeshStandardMaterial({color:key==='guardianEmber'?0x783b29:key==='guardianSteppe'?0x5e4a39:0x403d35,roughness:1,flatShading:true});
+    const body=new THREE.Mesh(new THREE.ConeGeometry(.9,2.7,6),mat);body.position.y=1.4;proxy.add(body);
+    const head=new THREE.Mesh(new THREE.IcosahedronGeometry(.55,0),mat);head.position.y=3;proxy.add(head);
+    proxy.visible=false;rootBone.add(proxy);
+    rig.userData.lod={model,proxy};
     return rig;
   }
 
@@ -606,7 +631,7 @@ class World3D extends HTMLElement {
     const stoneMat = new THREE.MeshStandardMaterial({ color: this.zone.id === 'steppe' ? 0x7e6c5b : this.zone.id === 'ember' ? 0x4a3d36 : 0x56564f, roughness: 0.98, flatShading: true });
     const count = Math.min(rockSpots.length, 220);
     const rocks = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), stoneMat, count);
-    rocks.name = 'boulders'; rocks.castShadow = true; rocks.receiveShadow = true;
+    rocks.name = 'boulders'; rocks.castShadow = false; rocks.receiveShadow = true;
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
     for (let i = 0; i < count; i++) {
       const [x, y] = rockSpots[i];
@@ -619,6 +644,7 @@ class World3D extends HTMLElement {
     this.zoneGroup.add(rocks);
 
     const groundLimit = this.zone.id === 'hearth' ? 40 : this.zone.id === 'fords' ? 58 : 62;
+    const ajolTreeSpots=[];
     for (let i = 0; i < Math.min(groundSpots.length, groundLimit); i++) {
       const [x,y] = groundSpots[i];
       const r = ((x*811 + y*131) % 1000) / 1000;
@@ -629,7 +655,7 @@ class World3D extends HTMLElement {
         else if (r > 0.2) this.rootMound(x, y, 0.56 + r * 0.52);
         else this.mushroomCluster(x, y, 0.52 + r * 0.42, false);
       } else if (this.zone.id === 'hearth') {
-        if (r > 0.66) this.placeAjolTreeModel(x, y, r, i);
+        if (r > 0.66) ajolTreeSpots.push([x,y,r,i]);
         else if (r > 0.34) this.rootMound(x, y, 0.55 + r * 0.5);
         else this.mushroomCluster(x, y, 0.52 + r * 0.4, false);
       } else if (this.zone.id === 'steppe') {
@@ -643,6 +669,7 @@ class World3D extends HTMLElement {
         else this.dryShrub(x, y, 0.45 + r * 0.34);
       }
     }
+    if (ajolTreeSpots.length) this.buildAjolTreeInstances(ajolTreeSpots);
     if (this.zone.id === 'ember' && this.modelAssets?.mushroom) this.buildEmberMushroomGroves();
     waterEdge.slice(0, this.zone.id === 'fords' ? 54 : 38).forEach(([x,y],i) => {
       const n = ((i * 37) % 50) / 100;
@@ -750,6 +777,42 @@ class World3D extends HTMLElement {
     tree.userData.targetHeight = heightVariation;
     this.zoneGroup.add(tree);
     return tree;
+  }
+
+  buildAjolTreeInstances(spots) {
+    const prototype = this.cloneModelAsset('ajolTree', 1, {axis:'y'});
+    if (!prototype) {
+      spots.forEach(([x,y,r,i]) => this.placeAjolTreeModel(x,y,r,i));
+      return;
+    }
+    prototype.updateMatrixWorld(true);
+    const pieces=[];
+    prototype.traverse(o=>{if(o.isMesh) pieces.push(o);});
+    const batches=pieces.map((piece,index)=>{
+      const batch=new THREE.InstancedMesh(piece.geometry,piece.material,spots.length);
+      batch.name=`ajol-tree-${index}`;
+      batch.userData.modelAsset='ajolTree';
+      batch.castShadow=false;
+      batch.receiveShadow=true;
+      this.zoneGroup.add(batch);
+      return batch;
+    });
+    const transform=new THREE.Matrix4(),instance=new THREE.Matrix4();
+    const rotation=new THREE.Quaternion(),euler=new THREE.Euler();
+    spots.forEach(([x,y,r,i],slot)=>{
+      const hash=(x*92821+y*68917+i*811)>>>0;
+      const height=5.1+(hash%1000)/999*2.9;
+      euler.set(0,((hash>>>3)%360)*Math.PI/180,0);
+      rotation.setFromEuler(euler);
+      transform.compose(this.worldPos(x,y,0.01),rotation,new THREE.Vector3(
+        height*(.91+((hash>>>7)%18)/100),height,height*(.91+((hash>>>12)%18)/100)));
+      pieces.forEach((piece,j)=>{
+        instance.multiplyMatrices(transform,piece.matrixWorld);
+        batches[j].setMatrixAt(slot,instance);
+      });
+    });
+    batches.forEach(batch=>{batch.instanceMatrix.needsUpdate=true;batch.computeBoundingSphere();});
+    this.ajolTreeBatches=batches;
   }
 
   willowTree(x, y, scale=1) {
@@ -1303,12 +1366,13 @@ class World3D extends HTMLElement {
     if (this.zoneGroup) {
       this.scene.remove(this.zoneGroup);
       this.zoneGroup.traverse(o => {
-        if (o.geometry) o.geometry.dispose();
+        if (o.isInstancedMesh) o.dispose();
+        if (o.geometry && !o.userData.modelAsset) o.geometry.dispose();
         if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
           if (m.map && m.map !== this._tex && !o.userData.modelAsset) m.map.dispose();
           if (m.normalMap && !o.userData.modelAsset) m.normalMap.dispose();
           if (m.bumpMap && !o.userData.modelAsset) m.bumpMap.dispose();
-          m.dispose();
+          if (!o.userData.modelAsset) m.dispose();
         });
       });
     }
@@ -1343,6 +1407,15 @@ class World3D extends HTMLElement {
     await this.buildActors(fromDir);
     this.interactables = [];this.hearthPortal=null;this.hearthCrystal=null;this.merchantBillboard=null;this.state.interact=null;
     if (zone.id === 'hearth') this.buildHearthFeatures();else this.buildPootal();
+    // Leave character shadows intact, but exclude all static props and portal
+    // details from the expensive second (shadow-map) render pass.
+    const actorRoots=new Set([this.playerObj,...this.enemies.map(e=>e.obj)]);
+    this.zoneGroup.traverse(o=>{
+      if (!o.isMesh) return;
+      let parent=o;
+      while (parent && !actorRoots.has(parent)) parent=parent.parent;
+      if (!parent) o.castShadow=false;
+    });
     if(fromDir==='pootal'){const t=this.nearestWalkable(this.pootalTile.x,this.pootalTile.y+2)||this.pootalTile;this.spawn=t;this.playerObj.position.copy(this.worldPos(t.x,t.y));}
 
     this._mood = null;
@@ -1877,6 +1950,19 @@ class World3D extends HTMLElement {
   }
 
   // ---------- per-frame ----------
+  updateModelLod(now) {
+    if (now - (this._lastLodCheck || 0) < 250) return;
+    this._lastLodCheck=now;
+    for (const foe of this.enemies || []) {
+      const lod=foe.obj?.userData?.lod;
+      if (!lod || !foe.obj.visible) continue;
+      const distance=foe.obj.position.distanceTo(this.camera.position);
+      const far=distance>(lod.proxy.visible?25:29);
+      lod.model.visible=!far;
+      lod.proxy.visible=far;
+    }
+  }
+
   update(dt, time) {
     const wp = this.water.geometry.attributes.position;
     for (let i = 0; i < wp.count; i++) {

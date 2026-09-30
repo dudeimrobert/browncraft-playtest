@@ -13,7 +13,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     server = ThreadingHTTPServer(('localhost', 0), Handler)
-    url = f'http://localhost:{server.server_port}/?build=2.4.8'
-    print(f'Browncraft 2.4.8 — TRADER BILLBOARD\nServing: {ROOT}\nOpen: {url}', flush=True)
+    url = f'http://localhost:{server.server_port}/?build=2.4.9'
+    print(f'Browncraft 2.4.9 — GPU PERFORMANCE\nServing: {ROOT}\nOpen: {url}', flush=True)
     webbrowser.open(url)
     server.serve_forever()

@@ -48,7 +48,7 @@
 @keyframes pootalCta{50%{box-shadow:0 0 0 3px rgba(13,8,4,.7),0 0 36px rgba(211,154,78,.52)}}
 @media(prefers-reduced-motion:reduce){.context-btn.pootal-cta{animation:none}}
 
-/* Alpha 2.4.8 — boss encounter, spell HUD, and death return flow */
+/* Alpha 2.4.9 — boss encounter, spell HUD, and death return flow */
 .spell-hud{position:absolute;left:18px;bottom:18px;z-index:3;display:flex;align-items:center;gap:10px;min-width:190px;padding:9px 12px;background:linear-gradient(90deg,rgba(6,7,7,.88),rgba(10,9,7,.66));border-left:2px solid #9d7442;box-shadow:0 8px 28px #0008;pointer-events:none;transition:bottom .2s ease}
 .spell-icon{width:39px;height:39px;display:grid;place-items:center;border:1px solid rgba(201,161,90,.45);background:radial-gradient(circle,rgba(120,78,38,.28),rgba(0,0,0,.45));color:#d8b473}.spell-icon svg{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}.spell-icon .accent{stroke:#f0d9a8;stroke-width:3}
 .spell-hud small,.spell-hud span{display:block;font-family:'Cinzel',serif;text-transform:uppercase;letter-spacing:.13em}.spell-hud small{font-size:6px;color:#807768}.spell-hud strong{display:block;margin:2px 0 1px;font:500 11px 'Cinzel',serif;color:#eadbc0;letter-spacing:.05em}.spell-hud span{font-size:6px;color:#a48d69}
