@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.4.9';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.4.9';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.1';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.1';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -81,7 +81,7 @@ const MAX_CHARACTERS = 8;
 const DISCIPLINES = {
   knight: { label: 'Knight', blurb: 'Balanced', vitality: 2, might: 2, arcana: 2, endurance: 2, stamRegen: 1 },
   brute: { label: 'Brute', blurb: 'Higher vitality', vitality: 4, might: 2, arcana: 1, endurance: 1, stamRegen: 1 },
-  caster: { label: 'Caster', blurb: 'Stronger Brown / casting', vitality: 1, might: 1, arcana: 4, endurance: 2, stamRegen: 1 },
+  caster: { label: 'Warlock', blurb: 'Brown arts / casting', vitality: 1, might: 1, arcana: 4, endurance: 2, stamRegen: 1 },
   rogue: { label: 'Rogue', blurb: 'Faster stamina recovery', vitality: 1, might: 2, arcana: 2, endurance: 3, stamRegen: 1.4 }
 };
 
@@ -490,10 +490,11 @@ function renderHud(s){
   if(s.target?.hpMax&&!s.bossHud){ th.hidden=false; q('#targetName').textContent=s.target.name||'Enemy'; q('#targetText').textContent=`${Math.ceil(s.target.hp)} / ${s.target.hpMax}`; q('#targetBar').style.width=pct(s.target.hp,s.target.hpMax); } else th.hidden=true;
   const bh=q('#bossHud');bh.hidden=!s.bossHud;game.classList.toggle('boss-active',!!s.bossHud);
   if(s.bossHud){q('#bossHudName').textContent=s.bossHud.name;q('#bossHudStatus').textContent=s.bossHud.status||'';q('#bossHudBar').style.width=pct(s.bossHud.hp,s.bossHud.hpMax);q('#bossHudText').textContent=`${Math.ceil(s.bossHud.hp)} / ${s.bossHud.hpMax}`;}
-  const mend=s.spell==='mend';q('#spellName').textContent=mend?'Brown Mend':'Brown Bolt';
-  q('#spellIcon').innerHTML=mend?'<svg viewBox="0 0 48 48"><path d="M12 27v-9a3 3 0 0 1 6 0v7-12a3 3 0 0 1 6 0v12-9a3 3 0 0 1 6 0v10-6a3 3 0 0 1 6 0v11c0 8-5 13-13 13h-2c-5 0-9-3-12-7l-4-6a3 3 0 0 1 5-4l2 2Z"/><path class="accent" d="M36 4v12M30 10h12"/></svg>':'<svg viewBox="0 0 48 48"><path d="m43 5-12 36-7-14-14-7L43 5Z"/><path class="accent" d="m24 27 9-9M9 31l-5 5M15 35l-5 8"/></svg>';
-  document.querySelectorAll('[data-spell-label]').forEach((el,i)=>el.textContent=i?mend?'Mend':'Bolt':mend?'Brown Mend':'Brown Bolt');
-  document.querySelectorAll('[data-act="cast"]').forEach(el=>el.setAttribute('aria-label',`Cast ${mend?'Brown Mend':'Brown Bolt'}`));
+  const knight=s.discipline==='knight', guard=s.spell==='guard', mend=s.spell==='mend';
+  q('#spellName').textContent=knight?(guard?'Brown Shield':'Fart Charge'):(mend?'Brown Mend':'Brown Bolt');
+  q('#spellIcon').innerHTML=(knight?guard:mend)?'<svg viewBox="0 0 48 48"><path d="M12 27v-9a3 3 0 0 1 6 0v7-12a3 3 0 0 1 6 0v12-9a3 3 0 0 1 6 0v10-6a3 3 0 0 1 6 0v11c0 8-5 13-13 13h-2c-5 0-9-3-12-7l-4-6a3 3 0 0 1 5-4l2 2Z"/><path class="accent" d="M36 4v12M30 10h12"/></svg>':'<svg viewBox="0 0 48 48"><path d="m43 5-12 36-7-14-14-7L43 5Z"/><path class="accent" d="m24 27 9-9M9 31l-5 5M15 35l-5 8"/></svg>';
+  document.querySelectorAll('[data-spell-label]').forEach((el,i)=>el.textContent=i?knight?(guard?'Shield':'Charge'):(mend?'Mend':'Bolt'):knight?(guard?'Brown Shield':'Fart Charge'):(mend?'Brown Mend':'Brown Bolt'));
+  document.querySelectorAll('[data-act="cast"]').forEach(el=>el.setAttribute('aria-label',`Use ${knight?(guard?'Brown Shield':'Fart Charge'):(mend?'Brown Mend':'Brown Bolt')}`));
   const ib=q('#interactBtn');
   ib.hidden=!s.interact;
   ib.textContent=s.interact?`${s.interact.verb||'Interact'} ${s.interact.name||''}`.trim():'Interact';

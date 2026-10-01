@@ -1,9 +1,9 @@
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.4.9';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.5.1';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.4.9';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.4.9';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.5.1';
+import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.5.1';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -30,6 +30,9 @@ const SPELLS = {
   mend: { key: 'mend', name: 'Brown Mend', cost: 30, cast: 0.62, heal: 24 }
 };
 const SPELL_ORDER = ['bolt', 'mend'];
+const KNIGHT_SKILLS = ['charge', 'guard'];
+const KNIGHT_CHARGE = { key:'charge', name:'Fart Charge', cost:22, cast:0.48, dmg:[17,24] };
+const KNIGHT_GUARD = { key:'guard', name:'Brown Shield', cost:30, cast:0.4 };
 const FLASK = { heal: 34, time: 0.9, max: 2 };
 const SAVE_PREFIX = 'browncraft-alpha11-progress:';
 const GROWTH = ['vitality', 'might', 'arcana', 'endurance'];
@@ -86,7 +89,7 @@ class World3D extends HTMLElement {
     this.state = {
       mode: 'roam', hp: 100, hpMax: 100, stam: 100, stamMax: 100, focus: 60, focusMax: 60,
       target: null, enemies: 0, nearby: 0, blocking: false, flash: 0,
-      flasks: FLASK.max, flasksMax: FLASK.max, spell: 'bolt', paused: false,
+      flasks: FLASK.max, flasksMax: FLASK.max, spell: 'charge', shield: 0, paused: false,
       zone: 'hearth', zoneName: ZONES.hearth.name, loading: null, level: 1, xp: 0, xpNext: XP_BASE,
       growthFocus: 'vitality', vitality: this.profile.vitality || 2, might: this.profile.might || 2, arcana: this.profile.arcana || 2, endurance: this.profile.endurance || 2,
       characterName: this.profile.name || 'The Wanderer', discipline: this.profile.discipline || 'knight',
@@ -102,6 +105,8 @@ class World3D extends HTMLElement {
     this.zone = ZONES.hearth;
     this.loadProgress();
     this.applyDerivedStats(true);
+    if (this.state.discipline === 'knight') { if (!KNIGHT_SKILLS.includes(this.state.spell)) this.state.spell = 'charge'; }
+    else if (!SPELL_ORDER.includes(this.state.spell)) this.state.spell='bolt';
     this.init();
   }
 
@@ -148,9 +153,9 @@ class World3D extends HTMLElement {
     controls.dampingFactor = 0.08;
     controls.enablePan = false;
     controls.minDistance = 10;
-    controls.maxDistance = 46;
+    controls.maxDistance = 24;
     controls.minPolarAngle = 0.4;
-    controls.maxPolarAngle = 1.25;
+    controls.maxPolarAngle = 1.05;
     controls.rotateSpeed = 0.6;
     this.controls = controls;
 
@@ -615,6 +620,22 @@ class World3D extends HTMLElement {
     this.waterBase = Float32Array.from(geo.attributes.position.array);
   }
 
+  buildRealmHorizon() {
+    // Shared instanced terrain surrounds the unwalkable edges of each realm.
+    const colors={hearth:[0x242c22,0x333b2c],fords:[0x202f2c,0x344038],steppe:[0x554534,0x6d5941],ember:[0x291b18,0x483028]}[this.zone.id];
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(this.w+110,this.h+110),new THREE.MeshBasicMaterial({color:colors[0],side:THREE.DoubleSide}));
+    floor.name='distant-land';floor.rotation.x=-Math.PI/2;floor.position.y=-1.8;this.zoneGroup.add(floor);
+    const rim=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshStandardMaterial({color:colors[1],roughness:1,flatShading:true}),64);
+    rim.name='distant-rim';rim.castShadow=false;rim.receiveShadow=false;
+    const m=new THREE.Matrix4(),q=new THREE.Quaternion(),pos=new THREE.Vector3(),scale=new THREE.Vector3(),axis=new THREE.Vector3(0,1,0);
+    for(let i=0;i<64;i++){
+      const side=Math.floor(i/16),v=-0.54+(i%16)*1.08/15,r=((i*811+side*131)%17)/17,offset=2.8+r*3;
+      pos.set(side===0?-this.w/2-offset:side===1?this.w/2+offset:v*this.w,-0.2+r*0.7,side===2?-this.h/2-offset:side===3?this.h/2+offset:v*this.h);
+      scale.set(3.3+r*2.5,2.1+r*2.6,3.4+r*2.8);q.setFromAxisAngle(axis,r*6.28);m.compose(pos,q,scale);rim.setMatrixAt(i,m);
+    }
+    rim.instanceMatrix.needsUpdate=true;rim.computeBoundingSphere();this.zoneGroup.add(rim);
+  }
+
   buildProps() {
     const rockSpots = [], groundSpots = [], pathSpots = [], waterEdge = [];
     for (let y = 1; y < this.rows - 1; y++) for (let x = 1; x < this.cols - 1; x++) {
@@ -773,6 +794,7 @@ class World3D extends HTMLElement {
     const widthZ = 0.91 + (((hash >>> 12) % 18) / 100);
     tree.scale.x *= widthX;
     tree.scale.z *= widthZ;
+    tree.traverse(o=>{if(o.isMesh){o.material=(Array.isArray(o.material)?o.material:[o.material]).map(source=>{const mat=source.clone();mat.color.multiply(new THREE.Color(0xb29b83));if(mat.emissive)mat.emissive.multiplyScalar(0.55);return mat;});if(o.material.length===1)o.material=o.material[0];}});
     tree.userData.ajolTree = true;
     tree.userData.targetHeight = heightVariation;
     this.zoneGroup.add(tree);
@@ -789,9 +811,17 @@ class World3D extends HTMLElement {
     const pieces=[];
     prototype.traverse(o=>{if(o.isMesh) pieces.push(o);});
     const batches=pieces.map((piece,index)=>{
-      const batch=new THREE.InstancedMesh(piece.geometry,piece.material,spots.length);
+      const materials=(Array.isArray(piece.material)?piece.material:[piece.material]).map(source=>{
+        const mat=source.clone();
+        mat.color.multiply(new THREE.Color(0xb29b83));
+        if (mat.emissive) mat.emissive.multiplyScalar(0.55);
+        mat.needsUpdate=true;
+        return mat;
+      });
+      const batch=new THREE.InstancedMesh(piece.geometry,Array.isArray(piece.material)?materials:materials[0],spots.length);
       batch.name=`ajol-tree-${index}`;
       batch.userData.modelAsset='ajolTree';
+      batch.userData.ajolTintMaterial=true;
       batch.castShadow=false;
       batch.receiveShadow=true;
       this.zoneGroup.add(batch);
@@ -983,7 +1013,8 @@ class World3D extends HTMLElement {
   buildHearthFeatures() {
     const at = (fx, fy) => this.nearestWalkable(Math.round(this.cols * fx), Math.round(this.rows * fy)) || { x: Math.round(this.cols * fx), y: Math.round(this.rows * fy) };
 
-    const cPos = at(0.5, 0.53);
+    // The authored crossroads texture centers the shrine near its Pootal approach.
+    const cPos = at(0.5, 0.50);
     const fountainGroup = new THREE.Group();
     const fountainModel = this.cloneModelAsset('fountain', 5.6);
     if (fountainModel) {
@@ -1367,6 +1398,7 @@ class World3D extends HTMLElement {
       this.scene.remove(this.zoneGroup);
       this.zoneGroup.traverse(o => {
         if (o.isInstancedMesh) o.dispose();
+        if (o.userData.ajolTintMaterial) (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());
         if (o.geometry && !o.userData.modelAsset) o.geometry.dispose();
         if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
           if (m.map && m.map !== this._tex && !o.userData.modelAsset) m.map.dispose();
@@ -1403,6 +1435,7 @@ class World3D extends HTMLElement {
       this.buildTerrain(surfaceTex);
     }
     this.buildWater();
+    this.buildRealmHorizon();
     this.buildProps();
     await this.buildActors(fromDir);
     this.interactables = [];this.hearthPortal=null;this.hearthCrystal=null;this.merchantBillboard=null;this.state.interact=null;
@@ -1427,6 +1460,10 @@ class World3D extends HTMLElement {
     }
     this.state.zone = zone.id;
     this.state.zoneName = zone.name;
+    if (zone.id === 'hearth') {
+      this.state.hp=this.state.hpMax; this.state.stam=this.state.stamMax; this.state.focus=this.state.focusMax;
+      this.state.flasks=this.state.flasksMax; this.state.shield=0; this.shieldT=0;
+    }
     this.state.objective=zone.id==='hearth'?'Approach or select the Pootal to choose your next realm.':`Defeat ${realmInfo(zone.id).boss} to claim its sigil. You may return to A’jol through the Pootal at any time.`;
     this.lockOn = null;
     this.lockRing.visible = false;
@@ -1623,15 +1660,15 @@ class World3D extends HTMLElement {
   }
 
   cast() {
-    const sp = SPELLS[this.state.spell] || SPELLS.bolt;
-    const heal = !!sp.heal;
-    if (!heal && this.state.mode !== 'fight') { this.say('No enemy to bind the spell to.'); return; }
-    if (this.state.mode === 'dead' || this.act_ || this.dodging || this.stagger) return;
-    if (!heal && !this.lockOn) return;
+    if (this.state.mode !== 'fight' || this.act_ || this.dodging || this.stagger || this.state.hp <= 0) return;
+    const knight = this.state.discipline === 'knight';
+    const sp = knight ? (this.state.spell === 'guard' ? KNIGHT_GUARD : KNIGHT_CHARGE) : (SPELLS[this.state.spell] || SPELLS.bolt);
+    const selfCast = sp.key === 'guard' || !!sp.heal;
+    if (!selfCast && (!this.lockOn || this.lockOn.hp <= 0)) { this.say('Select an enemy first.'); return; }
     if (this.state.focus < sp.cost) { this.say('Your Brown Reserve is spent.'); return; }
     this.state.focus -= sp.cost;
-    this.act_ = { kind: 'spell', spell: sp, t: 0, done: false, foe: heal ? null : this.lockOn };
-    if (!heal && this.lockOn) this.faceObj(this.playerObj, this.lockOn.obj.position);
+    this.act_ = { kind:'spell', spell:sp, t:0, done:false, foe:selfCast?null:this.lockOn };
+    if (!selfCast && this.lockOn) this.faceObj(this.playerObj,this.lockOn.obj.position);
     this.mark();
   }
 
@@ -1670,6 +1707,11 @@ class World3D extends HTMLElement {
         this.popup('guard broken', '#d94f2b', this.playerObj.position);
       }
     }
+    if (this.state.shield > 0) {
+      const absorbed=Math.min(this.state.shield, Math.ceil(taken*0.65));
+      this.state.shield-=absorbed; taken-=absorbed;
+      this.popup(`shield ${absorbed}`, '#cfa974', this.playerObj.position);
+    }
     this.state.hp = Math.max(0, this.state.hp - taken);
     this.state.flash = (this.state.flash || 0) + 1;
     this.playerHitT = 0.22;
@@ -1677,6 +1719,7 @@ class World3D extends HTMLElement {
     this.popup('-' + taken, '#e06a4d', this.playerObj.position);
     if (from) this.slide(this.playerObj, new THREE.Vector3().subVectors(this.playerObj.position, from.obj.position).setY(0).normalize(), 0.3);
     if (this.state.hp === 0) {
+      this.state.shield=0; this.shieldT=0;
       this.state.mode = 'dead';
       this.state.log = 'Your light goes out. A’jol calls you home.';
       this.state.target = null;
@@ -1773,9 +1816,10 @@ class World3D extends HTMLElement {
   }
 
   swapSpell() {
-    const i = SPELL_ORDER.indexOf(this.state.spell);
-    this.state.spell = SPELL_ORDER[(i + 1) % SPELL_ORDER.length];
-    this.say(`You turn your mind to ${SPELLS[this.state.spell].name}.`);
+    const order=this.state.discipline==='knight'?KNIGHT_SKILLS:SPELL_ORDER;
+    const i=order.indexOf(this.state.spell);
+    this.state.spell=order[(i+1)%order.length];
+    this.say(`You turn your mind to ${this.state.discipline==='knight'?(this.state.spell==='guard'?KNIGHT_GUARD:KNIGHT_CHARGE).name:SPELLS[this.state.spell].name}.`);
   }
 
   drink() {
@@ -1821,7 +1865,7 @@ class World3D extends HTMLElement {
   recenter() {
     const t = this.playerObj.position.clone().add(new THREE.Vector3(0, 1.3, 0));
     this.controls.target.copy(t);
-    this.camera.position.copy(t).add(new THREE.Vector3(0, 0.74, 0.72).normalize().multiplyScalar(30));
+    this.camera.position.copy(t).add(new THREE.Vector3(0, 0.85, 0.7).normalize().multiplyScalar(19));
   }
 
   reset() {
@@ -1863,6 +1907,7 @@ class World3D extends HTMLElement {
       return true;
     } catch (error) {
       console.error('Respawn at A’jol failed', error);
+      this.state.shield=0; this.shieldT=0;
       this.state.mode = 'dead';
       this.state.log = 'The way back to A’jol faltered. Try again.';
       return false;
@@ -2149,9 +2194,23 @@ class World3D extends HTMLElement {
         if (torso) torso.rotation.x = -0.08 - Math.sin(nt*Math.PI)*0.08;
         if (shield) shield.position.x = -0.92;
       }
+      if (sp.key==='charge' && a.t>=0.12 && a.t<=sp.cast+0.12) {
+        const direction=new THREE.Vector3(Math.sin(this.playerObj.rotation.y),0,Math.cos(this.playerObj.rotation.y));
+        this.slide(this.playerObj,direction,Math.min(dt,0.04)*16);
+        const foe=a.foe;
+        if (!a.done && foe?.hp>0 && foe.obj.position.distanceTo(this.playerObj.position)<2.8) {
+          a.done=true; this.hurtFoe(foe,Math.round(rnd(...sp.dmg)*this.state.attackPower),'#cfa974');
+          this.popup('FART CHARGE','#cfa974',this.playerObj.position);
+        }
+      }
       if (!a.done && a.t >= sp.cast) {
         a.done = true;
-        if (sp.heal) {
+        if (sp.key==='guard') {
+          this.state.shield=Math.min(Math.round(this.state.hpMax*0.30),Math.max(0,this.state.shield)+Math.round(this.state.hpMax*0.30));
+          this.shieldT=8; this.state.log='Brown Shield absorbs 65% of incoming damage, up to 30% of maximum health, for 8 seconds.';this.mark();
+        } else if (sp.key==='charge') {
+          this.state.log='The charge missed.';this.mark();
+        } else if (sp.heal) {
           const gain = Math.min(Math.round(sp.heal * this.state.magicPower), this.state.hpMax - this.state.hp);
           this.state.hp += gain;
           this.popup('+' + Math.round(gain), '#9fd8ff', this.playerObj.position);
@@ -2244,7 +2303,8 @@ class World3D extends HTMLElement {
       this.mark();
     }
     if (s.focus < s.focusMax) { s.focus = Math.min(s.focusMax, s.focus + 3.4 * dt); this.mark(); }
-    if (s.mode === 'roam' && s.hp < s.hpMax) { s.hp = Math.min(s.hpMax, s.hp + 0.35 * dt); this.mark(); }
+    if (s.mode === 'roam' && s.hp < s.hpMax) { s.hp = Math.min(s.hpMax, s.hp + 0.5 * dt); this.mark(); }
+    if (this.shieldT > 0) { this.shieldT=Math.max(0,this.shieldT-dt); if (!this.shieldT) {s.shield=0;this.mark();} }
   }
 
   enemyAI(dt, time) {
