@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Browncraft — Alpha 2.5.1</title>
+  <title>Browncraft — Alpha 2.5.2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=2.5.1" />
+  <link rel="stylesheet" href="./styles.css?v=2.5.2" />
   <script type="importmap">
   {
     "imports": {
@@ -51,7 +51,7 @@
         </div>
       </div>
       <div class="original-login-footer">
-        <span>Alpha 2.5.1 · REALM HORIZONS</span>
+        <span>Alpha 2.5.2 · GUARDIAN VICTORY</span>
         <button id="soundBtn" type="button">Sound · On</button>
       </div>
     </section>
@@ -107,6 +107,10 @@
     <section id="game" class="game-shell" hidden>
       <div id="worldMount" class="world-mount"></div>
       <div class="vignette" aria-hidden="true"></div>
+
+      <section id="guardianVictory" class="guardian-victory" role="status" aria-live="polite" hidden>
+        <div class="guardian-victory-content"><h1>Guardian Slain</h1><h2 id="guardianVictoryName"></h2><p id="guardianVictoryAccess"></p></div>
+      </section>
 
       <section id="deathScreen" class="death-screen" role="dialog" aria-modal="true" aria-labelledby="deathTitle" hidden>
         <div class="death-veil" aria-hidden="true"></div>
@@ -194,7 +198,7 @@
     </section>
   </main>
 
-  <script type="module" src="./assets/world3d.js?v=2.5.1"></script>
-  <script type="module" src="./app.js?v=2.5.1"></script>
+  <script type="module" src="./assets/world3d.js?v=2.5.2"></script>
+  <script type="module" src="./app.js?v=2.5.2"></script>
 </body>
 </html>

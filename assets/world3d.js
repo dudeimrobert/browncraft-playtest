@@ -1,9 +1,9 @@
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.5.1';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.5.2';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.5.1';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.5.1';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.5.2';
+import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.5.2';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -31,7 +31,7 @@ const SPELLS = {
 };
 const SPELL_ORDER = ['bolt', 'mend'];
 const KNIGHT_SKILLS = ['charge', 'guard'];
-const KNIGHT_CHARGE = { key:'charge', name:'Fart Charge', cost:22, cast:0.48, dmg:[17,24] };
+const KNIGHT_CHARGE = { key:'charge', name:'Fart Charge', cost:22, cast:0.48, dmg:[10,14] };
 const KNIGHT_GUARD = { key:'guard', name:'Brown Shield', cost:30, cast:0.4 };
 const FLASK = { heal: 34, time: 0.9, max: 2 };
 const SAVE_PREFIX = 'browncraft-alpha11-progress:';
@@ -1462,7 +1462,7 @@ class World3D extends HTMLElement {
     this.state.zoneName = zone.name;
     if (zone.id === 'hearth') {
       this.state.hp=this.state.hpMax; this.state.stam=this.state.stamMax; this.state.focus=this.state.focusMax;
-      this.state.flasks=this.state.flasksMax; this.state.shield=0; this.shieldT=0;
+      this.state.flasks=this.state.flasksMax; this.state.shield=0; this.shieldT=0;if(this.shieldVisual)this.shieldVisual.visible=false;
     }
     this.state.objective=zone.id==='hearth'?'Approach or select the Pootal to choose your next realm.':`Defeat ${realmInfo(zone.id).boss} to claim its sigil. You may return to A’jol through the Pootal at any time.`;
     this.lockOn = null;
@@ -1523,6 +1523,12 @@ class World3D extends HTMLElement {
     );
     this.bolt.visible = false;
     this.scene.add(this.bolt);
+    const shieldGeo=new THREE.SphereGeometry(1.55,24,16);
+    const vertexColors=[];const positions=shieldGeo.attributes.position;
+    for(let i=0;i<positions.count;i++){const h=(positions.getY(i)+1.55)/3.1;vertexColors.push(0.32+0.42*h,0.22+0.38*h,0.10+0.30*h);}
+    shieldGeo.setAttribute('color',new THREE.Float32BufferAttribute(vertexColors,3));
+    this.shieldVisual=new THREE.Mesh(shieldGeo,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:0.35,side:THREE.DoubleSide,depthWrite:false}));
+    this.shieldVisual.visible=false;this.shieldVisual.renderOrder=3;this.scene.add(this.shieldVisual);
     this.boltLight = new THREE.PointLight(0x6cc4ff, 0, 12);
     this.scene.add(this.boltLight);
   }
@@ -1712,6 +1718,7 @@ class World3D extends HTMLElement {
       this.state.shield-=absorbed; taken-=absorbed;
       this.popup(`shield ${absorbed}`, '#cfa974', this.playerObj.position);
     }
+    if(this.state.shield<=0 && this.shieldVisual)this.shieldVisual.visible=false;
     this.state.hp = Math.max(0, this.state.hp - taken);
     this.state.flash = (this.state.flash || 0) + 1;
     this.playerHitT = 0.22;
@@ -1719,7 +1726,7 @@ class World3D extends HTMLElement {
     this.popup('-' + taken, '#e06a4d', this.playerObj.position);
     if (from) this.slide(this.playerObj, new THREE.Vector3().subVectors(this.playerObj.position, from.obj.position).setY(0).normalize(), 0.3);
     if (this.state.hp === 0) {
-      this.state.shield=0; this.shieldT=0;
+      this.state.shield=0; this.shieldT=0;if(this.shieldVisual)this.shieldVisual.visible=false;
       this.state.mode = 'dead';
       this.state.log = 'Your light goes out. A’jol calls you home.';
       this.state.target = null;
@@ -1775,6 +1782,8 @@ class World3D extends HTMLElement {
         this.state.bossKills[this.zone.id]=true;
         this.state.bossDefeated=!!this.state.bossKills.fords;
         this.awakenRealmPootal(this.zone.id);
+        const next=REALMS[REALMS.findIndex(r=>r.id===this.zone.id)+1];
+        this.dispatchEvent(new CustomEvent('guardian-slay',{detail:{name:foe.name,access:next?next.name:'the awakened Pootal'}}));
         this.state.bossBattle = false;
       }
       this.awardXP(foe.xp || 25, `${foe.name} falls`);
@@ -1907,7 +1916,7 @@ class World3D extends HTMLElement {
       return true;
     } catch (error) {
       console.error('Respawn at A’jol failed', error);
-      this.state.shield=0; this.shieldT=0;
+      this.state.shield=0; this.shieldT=0;if(this.shieldVisual)this.shieldVisual.visible=false;
       this.state.mode = 'dead';
       this.state.log = 'The way back to A’jol faltered. Try again.';
       return false;
@@ -2200,6 +2209,7 @@ class World3D extends HTMLElement {
         const foe=a.foe;
         if (!a.done && foe?.hp>0 && foe.obj.position.distanceTo(this.playerObj.position)<2.8) {
           a.done=true; this.hurtFoe(foe,Math.round(rnd(...sp.dmg)*this.state.attackPower),'#cfa974');
+          if(foe.hp>0){this.clearEnemyAttack(foe);foe.ai='chase';foe.at=0;foe.stunT=0.5;this.popup('stunned','#f0d9a8',foe.obj.position);}
           this.popup('FART CHARGE','#cfa974',this.playerObj.position);
         }
       }
@@ -2207,7 +2217,7 @@ class World3D extends HTMLElement {
         a.done = true;
         if (sp.key==='guard') {
           this.state.shield=Math.min(Math.round(this.state.hpMax*0.30),Math.max(0,this.state.shield)+Math.round(this.state.hpMax*0.30));
-          this.shieldT=8; this.state.log='Brown Shield absorbs 65% of incoming damage, up to 30% of maximum health, for 8 seconds.';this.mark();
+          this.shieldT=8; this.shieldVisual.visible=true; this.state.log='Brown Shield absorbs 65% of incoming damage, up to 30% of maximum health, for 8 seconds.';this.mark();
         } else if (sp.key==='charge') {
           this.state.log='The charge missed.';this.mark();
         } else if (sp.heal) {
@@ -2305,6 +2315,7 @@ class World3D extends HTMLElement {
     if (s.focus < s.focusMax) { s.focus = Math.min(s.focusMax, s.focus + 3.4 * dt); this.mark(); }
     if (s.mode === 'roam' && s.hp < s.hpMax) { s.hp = Math.min(s.hpMax, s.hp + 0.5 * dt); this.mark(); }
     if (this.shieldT > 0) { this.shieldT=Math.max(0,this.shieldT-dt); if (!this.shieldT) {s.shield=0;this.mark();} }
+    if(this.shieldVisual){const active=s.shield>0 && this.shieldT>0;this.shieldVisual.visible=active;if(active){this.shieldVisual.position.copy(this.playerObj.position).add(new THREE.Vector3(0,1.4,0));this.shieldVisual.material.opacity=0.28+0.07*Math.sin(performance.now()*0.007);}}
   }
 
   enemyAI(dt, time) {
@@ -2325,6 +2336,7 @@ class World3D extends HTMLElement {
         }
         continue;
       }
+      if ((e.stunT || 0)>0){e.stunT=Math.max(0,e.stunT-dt);e.obj.rotation.z=Math.sin(e.stunT*18)*0.08;e.cool=Math.max(e.cool,0.4);continue;}
       if ((e.staggerT || 0) > 0) { e.staggerT = Math.max(0,e.staggerT-dt); e.obj.rotation.z = Math.sin(e.staggerT*36)*0.16; }
       else e.obj.rotation.z *= 0.82;
       if (e.flash > 0) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.1';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.1';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.2';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.2';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -12,6 +12,10 @@ const panel = q('#menuPanel');
 const desktopControls = q('#desktopControls');
 const mobileControls = q('#mobileControls');
 const deathScreen = q('#deathScreen');
+const guardianVictory=q('#guardianVictory');
+let guardianVictoryTimer=null;
+function hideGuardianVictory(){clearTimeout(guardianVictoryTimer);guardianVictory.classList.remove('visible');guardianVictory.hidden=true;}
+function showGuardianVictory({name,access}){hideGuardianVictory();q('#guardianVictoryName').textContent=name;q('#guardianVictoryAccess').textContent='• Access to '+access+' obtained';guardianVictory.hidden=false;requestAnimationFrame(()=>guardianVictory.classList.add('visible'));guardianVictoryTimer=setTimeout(hideGuardianVictory,4200);}
 const deathContinueBtn = q('#deathContinueBtn');
 const deathQuitBtn = q('#deathQuitBtn');
 const loginBgVideos = [q('#loginBgVideoA'), q('#loginBgVideoB')].filter(Boolean);
@@ -456,6 +460,8 @@ function startGame(profile){
   world=document.createElement('world-3d');
   world.id='world';
   world.characterProfile={...profile, ...(DISCIPLINES[profile.discipline]||DISCIPLINES.knight)};
+  hideGuardianVictory();
+  world.addEventListener('guardian-slay',e=>showGuardianVictory(e.detail));
   world.addEventListener('worldstate', e=>{ state=e.detail; renderHud(state); syncRealmMusic(state); });
   worldMount.appendChild(world);
   q('#playerName').textContent=profile.name;

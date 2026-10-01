@@ -1,4 +1,4 @@
-# Browncraft Alpha 2.5.1
+# Browncraft Alpha 2.5.2
 
 From the extracted project folder:
 
@@ -39,4 +39,4 @@ A’jol now uses the supplied **Swamp Meadow Crossroads Tile** as its true groun
 
 The sword remains a separate equipped asset. The hero GLB contains its skeleton and weights, but not runtime animation clips or the sword mesh.
 
-See `ALPHA_2.5.1_NOTES.md` for tests and remaining limitations.
+See `ALPHA_2.5.2_NOTES.md` for tests and remaining limitations.
