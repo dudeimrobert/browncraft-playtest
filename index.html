@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Browncraft — Alpha 2.5.2</title>
+  <title>Browncraft — Alpha 2.5.3</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=2.5.2" />
+  <link rel="stylesheet" href="./styles.css?v=2.5.3" />
   <script type="importmap">
   {
     "imports": {
@@ -51,7 +51,7 @@
         </div>
       </div>
       <div class="original-login-footer">
-        <span>Alpha 2.5.2 · GUARDIAN VICTORY</span>
+        <span>Alpha 2.5.3 · KNIGHT INVENTORY</span>
         <button id="soundBtn" type="button">Sound · On</button>
       </div>
     </section>
@@ -195,10 +195,16 @@
         </nav>
         <section id="menuPanel" class="menu-panel"></section>
       </aside>
+      <aside id="bag" class="bag-window" role="dialog" aria-modal="true" aria-label="Inventory" hidden>
+        <header><div><small>THE WANDERER'S POSSESSIONS</small><h2>Inventory</h2></div><button id="bagClose" aria-label="Close inventory">×</button></header>
+        <div id="bagGrid" class="bag-grid"></div>
+        <footer>Hover or focus an item to inspect it · B to close</footer>
+      </aside>
+      <div id="bagTooltip" class="bag-tooltip" role="tooltip" hidden></div>
     </section>
   </main>
 
-  <script type="module" src="./assets/world3d.js?v=2.5.2"></script>
-  <script type="module" src="./app.js?v=2.5.2"></script>
+  <script type="module" src="./assets/world3d.js?v=2.5.3"></script>
+  <script type="module" src="./app.js?v=2.5.3"></script>
 </body>
 </html>

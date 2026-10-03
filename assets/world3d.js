@@ -1671,6 +1671,10 @@ class World3D extends HTMLElement {
     const sp = knight ? (this.state.spell === 'guard' ? KNIGHT_GUARD : KNIGHT_CHARGE) : (SPELLS[this.state.spell] || SPELLS.bolt);
     const selfCast = sp.key === 'guard' || !!sp.heal;
     if (!selfCast && (!this.lockOn || this.lockOn.hp <= 0)) { this.say('Select an enemy first.'); return; }
+    if (sp.key === 'charge' && this.lockOn.obj.position.distanceTo(this.playerObj.position) > 9.5) {
+      this.popup('Out of range', '#f05245', this.playerObj.position);
+      this.say('Out of range'); return;
+    }
     if (this.state.focus < sp.cost) { this.say('Your Brown Reserve is spent.'); return; }
     this.state.focus -= sp.cost;
     this.act_ = { kind:'spell', spell:sp, t:0, done:false, foe:selfCast?null:this.lockOn };
@@ -2209,7 +2213,7 @@ class World3D extends HTMLElement {
         const foe=a.foe;
         if (!a.done && foe?.hp>0 && foe.obj.position.distanceTo(this.playerObj.position)<2.8) {
           a.done=true; this.hurtFoe(foe,Math.round(rnd(...sp.dmg)*this.state.attackPower),'#cfa974');
-          if(foe.hp>0){this.clearEnemyAttack(foe);foe.ai='chase';foe.at=0;foe.stunT=0.5;this.popup('stunned','#f0d9a8',foe.obj.position);}
+          if(foe.hp>0){this.clearEnemyAttack(foe);foe.ai='chase';foe.at=0;foe.stunT=1;this.popup('stunned','#f0d9a8',foe.obj.position);}
           this.popup('FART CHARGE','#cfa974',this.playerObj.position);
         }
       }
@@ -2219,7 +2223,8 @@ class World3D extends HTMLElement {
           this.state.shield=Math.min(Math.round(this.state.hpMax*0.30),Math.max(0,this.state.shield)+Math.round(this.state.hpMax*0.30));
           this.shieldT=8; this.shieldVisual.visible=true; this.state.log='Brown Shield absorbs 65% of incoming damage, up to 30% of maximum health, for 8 seconds.';this.mark();
         } else if (sp.key==='charge') {
-          this.state.log='The charge missed.';this.mark();
+          this.popup('Out of range', '#f05245', this.playerObj.position);
+          this.state.log='Out of range';this.mark();
         } else if (sp.heal) {
           const gain = Math.min(Math.round(sp.heal * this.state.magicPower), this.state.hpMax - this.state.hp);
           this.state.hp += gain;

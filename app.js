@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.2';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.2';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.3';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.3';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -9,6 +9,24 @@ const game = q('#game');
 const worldMount = q('#worldMount');
 const menu = q('#menu');
 const panel = q('#menuPanel');
+const bag=q('#bag'), bagGrid=q('#bagGrid'), bagTooltip=q('#bagTooltip');
+let bagSignature='';
+function carriedItems(s){
+  const items=[
+    {icon:'◒',name:'Brown Flask',type:'Consumable',details:`${s.flasks} / ${s.flasksMax} charges · Restores health`,flavor:'A little courage for the road.'},
+    {icon:'⚔',name:'Rustbound Blade',type:'Weapon · Right Hand',details:'Knight melee weapon · Scales with Pressure',flavor:'Still sharp enough to make a point.'},
+    {icon:'⬟',name:'Wooden Guard',type:'Shield · Left Hand',details:'Guard equipment · Blocking uses stamina',flavor:'Splintered, but steadfast.'},
+    {icon:'▤',name:'Bogmail',type:'Armor · Body',details:'Starter armor · Defense is reflected in your current stats',flavor:'Worn into shape by the swamp.'}
+  ];
+  for(const [id,name,flavor] of [['fords','Fragment of Return','The first thread of the greater mystery.'],['steppe','Fragment of Pressure','A weight held inside the Brown.'],['ember','Fragment of Release','A spark awaiting its purpose.']]) if(s.pootalKeys?.[id]) items.push({icon:'✦',name,type:'Quest item · Guardian Fragment',details:'Recovered · Persists through death',flavor});
+  return items;
+}
+function hideBagTooltip(){bagTooltip.hidden=true;}
+function positionBagTooltip(e){const x=Math.min(e.clientX+18,innerWidth-bagTooltip.offsetWidth-12),y=Math.min(e.clientY+18,innerHeight-bagTooltip.offsetHeight-12);bagTooltip.style.left=Math.max(8,x)+'px';bagTooltip.style.top=Math.max(8,y)+'px';}
+function renderBag(){if(bag.hidden||!state)return;const items=carriedItems(state),signature=JSON.stringify(items);if(signature===bagSignature)return;bagSignature=signature;bagGrid.innerHTML=Array.from({length:30},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" aria-label="${esc(items[i].name)}"><span>${items[i].icon}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:''}</button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');bagGrid.querySelectorAll('[data-slot]').forEach(slot=>{const item=items[Number(slot.dataset.slot)];const show=e=>{bagTooltip.innerHTML=`<strong>${esc(item.name)}</strong><small>${esc(item.type)}</small><p>${esc(item.details)}</p><i>${esc(item.flavor)}</i>`;bagTooltip.hidden=false;const r=slot.getBoundingClientRect();positionBagTooltip(e.clientX===undefined?{clientX:r.right,clientY:r.top}:e)};slot.addEventListener('pointerenter',show);slot.addEventListener('pointermove',positionBagTooltip);slot.addEventListener('pointerleave',hideBagTooltip);slot.addEventListener('focus',show);slot.addEventListener('blur',hideBagTooltip);});}
+function openBag(){if(!world||game.hidden||state?.loading||state?.mode==='dead'||state?.pootalDialog)return;if(!menu.hidden)closeMenu();bag.hidden=false;world.setPaused?.(true);bagSignature='';renderBag();q('#bagClose').focus();}
+function closeBag(){if(bag.hidden)return;bag.hidden=true;hideBagTooltip();world?.setPaused?.(false);}
+q('#bagClose').addEventListener('click',closeBag);
 const desktopControls = q('#desktopControls');
 const mobileControls = q('#mobileControls');
 const deathScreen = q('#deathScreen');
@@ -506,6 +524,7 @@ function renderHud(s){
   ib.textContent=s.interact?`${s.interact.verb||'Interact'} ${s.interact.name||''}`.trim():'Interact';
   ib.classList.toggle('pootal-cta',s.interact?.id==='portal');
   if(!menu.hidden) renderMenu();
+  if(!bag.hidden) renderBag();
 }
 
 deathContinueBtn.addEventListener('click', async()=>{
@@ -522,10 +541,10 @@ deathQuitBtn.addEventListener('click',()=>{
   openCharacterSelect();
 });
 
-function openMenu(){ if(!world||state?.pootalDialog||state?.loading)return; menu.hidden=false; world.setPaused?.(true); renderMenu(); }
+function openMenu(){ if(!world||state?.pootalDialog||state?.loading)return; closeBag();menu.hidden=false; world.setPaused?.(true); renderMenu(); }
 function closeMenu(){ menu.hidden=true; world?.setPaused?.(false); }
 q('#menuBtn').addEventListener('click',openMenu); q('#resumeBtn').addEventListener('click',closeMenu);
-document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{ currentTab=b.dataset.tab; document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b)); renderMenu(); }));
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.tab==='inventory'){openBag();return;} currentTab=b.dataset.tab; document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b)); renderMenu(); }));
 function renderMenu(){
   if(!state){ panel.innerHTML='<h2>Loading</h2><div class="sub">The Brown is gathering…</div>'; return; }
   const label={vitality:'Fiber',might:'Pressure',arcana:'Brown',endurance:'Gut'};
@@ -565,7 +584,7 @@ const pad=q('#movePad'), knob=q('#moveKnob'); let pid=null;
 function moveFromEvent(e){ if(!world)return; const r=pad.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,max=r.width*.34,m=Math.hypot(dx,dy)||1,k=Math.min(1,max/m),x=dx/max*k,y=dy/max*k; knob.style.transform=`translate(${x*max}px,${y*max}px)`; world.setMove?.(x,y); }
 pad.addEventListener('pointerdown',e=>{pid=e.pointerId;pad.setPointerCapture(pid);moveFromEvent(e)}); pad.addEventListener('pointermove',e=>{if(e.pointerId===pid)moveFromEvent(e)}); function endPad(e){if(pid!==null&&e.pointerId===pid){pid=null;knob.style.transform='';world?.setMove?.(0,0)}} pad.addEventListener('pointerup',endPad); pad.addEventListener('pointercancel',endPad);
 addEventListener('resize',applyLayout);
-addEventListener('keydown',e=>{ if(e.key==='Escape'&&state?.pootalDialog){e.preventDefault();world?.act('pootal-close');return;} if(e.key==='Escape'&&!q('#newCharacterModal').hidden){closeCreator();return;} if(e.key==='Escape'&&!game.hidden){menu.hidden?openMenu():closeMenu();} });
+addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(e.key.toLowerCase()==='b'&&!game.hidden){e.preventDefault();bag.hidden?openBag():closeBag();return;}if(e.key==='Escape'&&!bag.hidden){e.preventDefault();closeBag();return;} if(e.key==='Escape'&&state?.pootalDialog){e.preventDefault();world?.act('pootal-close');return;} if(e.key==='Escape'&&!q('#newCharacterModal').hidden){closeCreator();return;} if(e.key==='Escape'&&!game.hidden){menu.hidden?openMenu():closeMenu();} });
 
 function ensurePreview(){
   if(preview) { preview.resize(); return; }
