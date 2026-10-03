@@ -53,13 +53,13 @@ const ZONES = {
     hp: 88, damage: [12,18], cols: 34, rows: 34
   },
   steppe: {
-    id: 'steppe', name: 'Assfall Steppes', mood: 'overcast', mask: 'assets/map-steppe-bf.png', surface: 'assets/map-steppe-bf.png',
+    id: 'steppe', name: 'Assfall Steppes', mood: 'overcast', mask: 'assets/map-steppe-bf.png', surface: 'assets/ground-steppe-authored.png',
     blurb: 'Terraced badlands of mineral pools and rising steam. The earth here exhales in slow, hot breaths.',
     foes: ['Cinder Warden', 'Pale Drifter', 'Kiln Thrall', 'Ash-Choked Knight'],
     hp: 110, damage: [15,21], cols: 34, rows: 34
   },
   ember: {
-    id: 'ember', name: 'Emberpood', mood: 'night', mask: 'assets/map-ember-bf.png', surface: 'assets/ground-ember.png',
+    id: 'ember', name: 'Emberpood', mood: 'night', mask: 'assets/map-ember-bf.png', surface: 'assets/ground-ember-authored.png',
     blurb: 'Charred fungal wilds lit by volcanic glow. Huge ember-caps bloom where the ground split open.',
     foes: ['Smouldering Hound', 'Coalwright', 'Root Suppliant', 'The Long Ember'],
     hp: 128, damage: [18,25], cols: 34, rows: 34
@@ -665,7 +665,46 @@ class World3D extends HTMLElement {
     this.zoneGroup.add(rocks);
 
     const groundLimit = this.zone.id === 'hearth' ? 40 : this.zone.id === 'fords' ? 58 : 62;
-    const ajolTreeSpots=[];
+    // Explicit positions and canopy sizes from the approved A'jol placement map.
+    const ajolTreeSpots = this.zone.id === 'hearth' ? [
+      [27.03, 1.47, 1.02],
+      [1.41, 1.47, 0.82],
+      [10.77, 2.05, 1.41],
+      [13.57, 1.79, 0.83],
+      [24.86, 2.07, 0.93],
+      [32.74, 2.49, 1.35],
+      [29.22, 2.57, 0.95],
+      [2.1, 3.83, 1.41],
+      [26.24, 3.82, 0.73],
+      [12.74, 4.15, 0.82],
+      [3.16, 7.41, 0.83],
+      [3.66, 9.78, 1.17],
+      [1.31, 9.63, 0.79],
+      [32.53, 12.52, 1.2],
+      [29.58, 12.41, 0.73],
+      [2.77, 13.36, 1.36],
+      [24.77, 14.01, 1.02],
+      [30.79, 14.64, 0.93],
+      [26.44, 15.4, 0.76],
+      [33.41, 19.83, 0.76],
+      [32.32, 21.94, 1.09],
+      [12.81, 21.75, 0.72],
+      [27.32, 22.28, 1.11],
+      [2.87, 22.82, 1.3],
+      [14.98, 22.82, 1.11],
+      [4.51, 25.35, 0.85],
+      [2.14, 25.81, 1.02],
+      [26.2, 31.43, 1.31],
+      [32.82, 31.06, 0.94],
+      [4.66, 31.37, 0.85],
+      [30.26, 32.53, 1.16],
+      [2.32, 32.74, 1.34],
+      [9.69, 32.54, 0.85],
+      [32.82, 33.41, 0.99],
+      [27.71, 33.68, 0.72],
+      [5.2, 33.76, 0.72],
+      [11.32, 33.76, 0.72],
+    ] : [];
     for (let i = 0; i < Math.min(groundSpots.length, groundLimit); i++) {
       const [x,y] = groundSpots[i];
       const r = ((x*811 + y*131) % 1000) / 1000;
@@ -676,8 +715,7 @@ class World3D extends HTMLElement {
         else if (r > 0.2) this.rootMound(x, y, 0.56 + r * 0.52);
         else this.mushroomCluster(x, y, 0.52 + r * 0.42, false);
       } else if (this.zone.id === 'hearth') {
-        if (r > 0.66) ajolTreeSpots.push([x,y,r,i]);
-        else if (r > 0.34) this.rootMound(x, y, 0.55 + r * 0.5);
+        if (r > 0.34) this.rootMound(x, y, 0.55 + r * 0.5);
         else this.mushroomCluster(x, y, 0.52 + r * 0.4, false);
       } else if (this.zone.id === 'steppe') {
         if (r > 0.55) this.mesaPillar(x, y, 0.75 + r * 0.85);
@@ -785,7 +823,7 @@ class World3D extends HTMLElement {
     // Stable pseudo-random variation keeps A'jol visually varied without trees
     // changing size or orientation every time the realm is rebuilt.
     const hash = (x * 92821 + y * 68917 + index * 811) >>> 0;
-    const heightVariation = 5.1 + (((hash % 1000) / 999) * 2.9); // 5.1–8.0 world units
+    const heightVariation = Math.max(4.6, Math.min(8.7, 4.6 + (sizeSeed - 0.72) / 0.69 * 4.1));
     const tree = this.cloneModelAsset('ajolTree', heightVariation, { axis: 'y' });
     if (!tree) return this.willowTree(x, y, 0.55 + sizeSeed * 0.58);
     tree.position.add(this.worldPos(x, y, 0.01));
@@ -831,7 +869,7 @@ class World3D extends HTMLElement {
     const rotation=new THREE.Quaternion(),euler=new THREE.Euler();
     spots.forEach(([x,y,r,i],slot)=>{
       const hash=(x*92821+y*68917+i*811)>>>0;
-      const height=5.1+(hash%1000)/999*2.9;
+      const height=Math.max(4.6,Math.min(8.7,4.6+(r-0.72)/0.69*4.1));
       euler.set(0,((hash>>>3)%360)*Math.PI/180,0);
       rotation.setFromEuler(euler);
       transform.compose(this.worldPos(x,y,0.01),rotation,new THREE.Vector3(
@@ -1014,7 +1052,7 @@ class World3D extends HTMLElement {
     const at = (fx, fy) => this.nearestWalkable(Math.round(this.cols * fx), Math.round(this.rows * fy)) || { x: Math.round(this.cols * fx), y: Math.round(this.rows * fy) };
 
     // The authored crossroads texture centers the shrine near its Pootal approach.
-    const cPos = at(0.5, 0.50);
+    const cPos = at(0.50, 0.485);
     const fountainGroup = new THREE.Group();
     const fountainModel = this.cloneModelAsset('fountain', 5.6);
     if (fountainModel) {
@@ -1050,7 +1088,7 @@ class World3D extends HTMLElement {
     bag.scale.set(1, 1.2, 0.9); bag.position.copy(merchant.position).add(new THREE.Vector3(0.8, 0.5, 0.05)); bag.castShadow = true; this.zoneGroup.add(bag);
     this.addInteract('merchant', 'the merchant', 'Trade with', merchant, 3.6, () => this.tradeWithMerchant());
 
-    const tPos = at(0.23, 0.2);
+    const tPos = at(0.685, 0.265);
     const tentOrigin = this.worldPos(tPos.x, tPos.y);
     const tent = new THREE.Group();
     const teepee = new THREE.Mesh(new THREE.ConeGeometry(1.8, 2.1, 4), new THREE.MeshStandardMaterial({ color: 0x736751, roughness: 1 })); teepee.rotation.y = Math.PI / 4; teepee.position.y = 1.05; teepee.castShadow = true; tent.add(teepee);
@@ -1061,7 +1099,7 @@ class World3D extends HTMLElement {
     const fireLight = new THREE.PointLight(0xd9752b, 1.8, 8); fireLight.position.copy(fire.position).add(new THREE.Vector3(0, 0.45, 0)); this.zoneGroup.add(fireLight);
     this.addInteract('tent', 'the rest tent', 'Rest at', tent, 3.6, () => this.restAtTent());
 
-    const dPositions = [at(0.26, 0.72), at(0.36, 0.76)];
+    const dPositions = [at(0.28, 0.75), at(0.31, 0.75)];
     dPositions.forEach(dp => {
       const dummy = new THREE.Group();
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.7, 6), new THREE.MeshStandardMaterial({ color: 0x6b5a3f, roughness: 1 })); post.position.y = 0.85; dummy.add(post);

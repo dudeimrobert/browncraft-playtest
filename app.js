@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.3';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.3';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.4';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.4';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
