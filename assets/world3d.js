@@ -1,3 +1,4 @@
+import { captureLevel, applyProject, loadProject } from './level-project.js';
 import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.5.6';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -107,8 +108,11 @@ class World3D extends HTMLElement {
     this.blocking = false;
     this.popups = [];
     this.interactables = [];
+    this.levelZones = ZONES;
     this.zone = ZONES.hearth;
-    this.loadProgress();
+    this.levelPreview = new URLSearchParams(globalThis.location?.search || "").has('levelPreview');
+    if (!this.editorMode && !this.levelPreview) this.loadProgress();
+    if (this.levelPreview) { this.zone=ZONES[new URLSearchParams(globalThis.location?.search || "").get('previewRealm')]||ZONES.hearth; this.state.pootalKeys={fords:true,steppe:true,ember:true}; }
     this.applyDerivedStats(true);
     if (this.state.discipline === 'knight') { if (!KNIGHT_SKILLS.includes(this.state.spell)) this.state.spell = 'charge'; }
     else if (!SPELL_ORDER.includes(this.state.spell)) this.state.spell='bolt';
@@ -163,6 +167,8 @@ class World3D extends HTMLElement {
     controls.maxPolarAngle = 1.05;
     controls.rotateSpeed = 0.6;
     this.controls = controls;
+    this._editorNeedsRender = true;
+    controls.addEventListener("change",()=>{this._editorNeedsRender=true;});
 
     scene.add(new THREE.HemisphereLight(0x8fa6b8, 0x2a2417, 0.55));
     const sun = new THREE.DirectionalLight(0xffd9a0, 1.7);
@@ -180,13 +186,13 @@ class World3D extends HTMLElement {
     await Promise.all([this.loadModelAssets(), this.loadTextureAssets()]);
 
     this.buildMarkers();
+    this.levelProject = await loadProject();
     await this.buildZone(this.zone,'pootal');
 
     this.resize();
     this._ro = new ResizeObserver(() => this.resize());
     this._ro.observe(this);
-    this.bindInput();
-    this.bindTargeting();
+    if (!this.editorMode) { this.bindInput(); this.bindTargeting(); }
     this.emit();
 
     let last = performance.now();
@@ -212,6 +218,8 @@ class World3D extends HTMLElement {
       this._t = (this._t || 0) + dt;
       this.update(dt, this._t);
       controls.update();
+      if (this.editorMode && !this._editorNeedsRender) return;
+      this._editorNeedsRender=false;
       this.updateModelLod(now);
       renderer.render(scene, this.camera);
     };
@@ -467,6 +475,7 @@ class World3D extends HTMLElement {
   }
 
   walkable(x, y) {
+    if (Number.isInteger(x) && Number.isInteger(y) && x > 0 && y > 0 && x < this.cols-1 && y < this.rows-1 && this.levelCollision?.has(`${x},${y}`)) return !this.levelCollision.get(`${x},${y}`);
     if (x < 0 || y < 0 || x >= this.cols || y >= this.rows) return false;
     // The adventure-realm masks are legacy concept paintings, not authored
     // collision maps. Keep a one-tile perimeter so the player cannot reach
@@ -611,6 +620,29 @@ class World3D extends HTMLElement {
     skirt.position.y = -5.2;
     skirt.receiveShadow = true;
     this.zoneGroup.add(skirt);
+  }
+
+  // Stillwater Basin uses a fixed low-cost translucent surface instead of
+  // the animated subdivided water plane shared by the other realms.
+  buildStillwaterWater() {
+    const geometry = new THREE.PlaneGeometry(this.w, this.h, 1, 1);
+    geometry.rotateX(-Math.PI / 2);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x31534a,
+      transparent: true,
+      opacity: 0.48,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    const water = new THREE.Mesh(geometry, material);
+    water.name = 'stillwater-static-water';
+    water.position.y = -0.42;
+    water.castShadow = false;
+    water.receiveShadow = false;
+    water.frustumCulled = true;
+    this.zoneGroup.add(water);
+    this.water = water;
+    this.waterBase = null; // Static: no CPU vertex updates required.
   }
 
   buildWater() {
@@ -979,7 +1011,7 @@ class World3D extends HTMLElement {
       }
     }
     g.userData.fronds = strands;
-    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); this.zoneGroup.add(g); return g;
+    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); g.name = 'Willow'; this.zoneGroup.add(g); return g;
   }
 
   rootMound(x, y, scale=1) {
@@ -988,13 +1020,13 @@ class World3D extends HTMLElement {
     const soil = new THREE.MeshStandardMaterial({ color: 0x4f4a34, roughness: 1, flatShading: true });
     const base = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 1), soil); base.scale.set(1.4,0.7,1.1); base.position.y=0.22; g.add(base);
     for (let i=0;i<4;i++) { const root = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,1.2,6), bark); root.position.set((Math.random()-.5)*0.6,0.38,(Math.random()-.5)*0.6); root.rotation.z=(Math.random()-.5)*1.2; root.rotation.y=Math.random()*Math.PI; root.castShadow=true; g.add(root); }
-    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); g.name = 'Root mound'; this.zoneGroup.add(g);
   }
 
   reedClump(x,y,scale=1) {
     const g=new THREE.Group(); const mat=new THREE.MeshStandardMaterial({color:this.zone.id==='steppe'?0x98855f:0x7f8450,roughness:1,side:THREE.DoubleSide});
     for(let i=0;i<7;i++){ const r=new THREE.Mesh(new THREE.PlaneGeometry(0.12,1.5+Math.random()*0.8),mat); r.position.set((Math.random()-.5)*0.55,0.75,(Math.random()-.5)*0.55); r.rotation.y=Math.random()*Math.PI; r.rotation.z=(Math.random()-.5)*0.18; g.add(r); }
-    g.position.copy(this.worldPos(x,y,0.02)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y,0.02)); g.scale.setScalar(scale); g.name = 'Reeds'; this.zoneGroup.add(g);
   }
 
   lilyPatch(x,y,scale=1) {
@@ -1004,7 +1036,7 @@ class World3D extends HTMLElement {
       const d = new THREE.Mesh(new THREE.CircleGeometry(0.18 + Math.random()*0.15, 12), mat);
       d.rotation.x = -Math.PI / 2; d.position.set((Math.random()-.5)*0.9, -0.1 + Math.random()*0.02, (Math.random()-.5)*0.9); g.add(d);
     }
-    g.position.copy(this.worldPos(x,y,-0.2)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y,-0.2)); g.scale.setScalar(scale); g.name = 'Lily pads'; this.zoneGroup.add(g);
   }
 
   mushroomCluster(x,y,scale=1,glow=false) {
@@ -1015,7 +1047,7 @@ class World3D extends HTMLElement {
       const capMat=new THREE.MeshStandardMaterial({color:this.zone.id==='ember'?0xa75128:0x7f5a3d,roughness:.78,emissive:glow?0x351408:0x000000,emissiveIntensity:glow?.55:0});
       const a=new THREE.Mesh(new THREE.SphereGeometry(.22 + Math.random()*0.18,10,8,0,Math.PI*2,0,Math.PI*.55),capMat); const b=a.clone(); a.position.copy(stem.position).add(new THREE.Vector3(-.08,h*.55,0)); b.position.copy(stem.position).add(new THREE.Vector3(.08,h*.55,0)); a.scale.set(1.05,.7,1);b.scale.set(1.05,.7,1); g.add(a,b);
     }
-    g.position.copy(this.worldPos(x,y));g.scale.setScalar(scale);this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y));g.scale.setScalar(scale);g.name = 'Mushrooms'; this.zoneGroup.add(g);
   }
 
   emberFungus(x,y,scale=1) {
@@ -1032,7 +1064,7 @@ class World3D extends HTMLElement {
     const mat=new THREE.MeshStandardMaterial({color:0x2b2927,roughness:1,flatShading:true}); const g=new THREE.Group();
     const t=new THREE.Mesh(new THREE.CylinderGeometry(.12,.34,3.2,6),mat);t.position.y=1.6;t.castShadow=true;g.add(t);
     for(let i=0;i<2;i++){const b=new THREE.Mesh(new THREE.CylinderGeometry(.05,.09,1.3,5),mat);b.position.set(0,2.45,0);b.rotation.z=(i?1:-1)*.75;g.add(b)}
-    g.position.copy(this.worldPos(x,y));g.scale.setScalar(scale);this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y));g.scale.setScalar(scale);g.name = 'Charred spire'; this.zoneGroup.add(g);
   }
 
   mesaPillar(x,y,scale=1) {
@@ -1040,7 +1072,7 @@ class World3D extends HTMLElement {
     const mat = new THREE.MeshStandardMaterial({ color: 0x826347, roughness: 0.98, flatShading: true });
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.54,1.4,7), mat); base.position.y = 0.7; base.castShadow = true; g.add(base);
     const top = new THREE.Mesh(new THREE.CylinderGeometry(0.58,0.62,0.4,9), new THREE.MeshStandardMaterial({ color: 0xa37b52, roughness: 0.92 })); top.position.y = 1.58; top.castShadow = true; g.add(top);
-    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); g.name = 'Mesa pillar'; this.zoneGroup.add(g);
   }
 
   dryShrub(x,y,scale=1) {
@@ -1050,7 +1082,7 @@ class World3D extends HTMLElement {
       const p = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.35 + Math.random()*0.25), mat);
       p.position.set((Math.random()-.5)*0.3,0.18,(Math.random()-.5)*0.3); p.rotation.y=Math.random()*Math.PI; p.rotation.z=(Math.random()-.5)*0.8; g.add(p);
     }
-    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); g.name = 'Dry shrub'; this.zoneGroup.add(g);
   }
 
   ruinMarker(x,y,scale=1,steppe=false) {
@@ -1058,7 +1090,7 @@ class World3D extends HTMLElement {
     const mat = new THREE.MeshStandardMaterial({ color: steppe ? 0x8a7a66 : 0x5d5a53, roughness: 1, flatShading: true });
     const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.42,1.8,0.42), mat); shaft.position.y = 0.92; shaft.castShadow = true; g.add(shaft);
     const cap = new THREE.Mesh(new THREE.BoxGeometry(0.56,0.18,0.56), mat); cap.position.y = 1.84; g.add(cap);
-    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); g.name = 'Ruin marker'; this.zoneGroup.add(g);
   }
 
   steamVent(x,y,scale=1) {
@@ -1067,14 +1099,14 @@ class World3D extends HTMLElement {
     pit.position.y = 0.05; g.add(pit);
     const pool = new THREE.Mesh(new THREE.CircleGeometry(0.32, 16), new THREE.MeshStandardMaterial({ color: 0xc48a53, emissive: 0x8b5a26, emissiveIntensity: 0.4, side: THREE.DoubleSide }));
     pool.rotation.x = -Math.PI/2; pool.position.y = 0.17; g.add(pool);
-    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); g.name = 'Steam vent'; this.zoneGroup.add(g);
   }
 
   lavaVent(x,y,scale=1) {
     const g = new THREE.Group();
     const rock = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.45,0.36,8), new THREE.MeshStandardMaterial({ color: 0x362720, roughness: 1 })); rock.position.y = 0.18; g.add(rock);
     const glow = new THREE.Mesh(new THREE.CircleGeometry(0.22, 16), new THREE.MeshStandardMaterial({ color: 0xff7a30, emissive: 0xff6a21, emissiveIntensity: 1.4, side: THREE.DoubleSide })); glow.rotation.x = -Math.PI/2; glow.position.y = 0.38; g.add(glow);
-    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); this.zoneGroup.add(g);
+    g.position.copy(this.worldPos(x,y)); g.scale.setScalar(scale); g.name = 'Lava vent'; this.zoneGroup.add(g);
   }
 
   buildAmbientParticles() {
@@ -1136,6 +1168,7 @@ class World3D extends HTMLElement {
     const waterGlow = new THREE.Mesh(new THREE.CircleGeometry(1.42, 32), new THREE.MeshPhysicalMaterial({ color: 0x557f83, emissive: 0x244a50, emissiveIntensity: 0.58, transparent: true, opacity: 0.68, roughness: 0.16, clearcoat: 0.55, side: THREE.DoubleSide }));
     waterGlow.rotation.x = -Math.PI / 2; waterGlow.position.y = 0.42; fountainGroup.add(waterGlow);
     const glow = new THREE.PointLight(0x73c8d2, 1.55, 9); glow.position.y = 1.35; fountainGroup.add(glow);
+    fountainGroup.name='Brownwell';
     fountainGroup.position.copy(this.worldPos(cPos.x, cPos.y));
     fountainGroup.userData.glow = glow;
     fountainGroup.userData.waterGlow = waterGlow;
@@ -1155,6 +1188,7 @@ class World3D extends HTMLElement {
     stall.position.copy(merchant.position).add(new THREE.Vector3(-1.5,0,0)); this.zoneGroup.add(stall);
     const bag = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), new THREE.MeshStandardMaterial({ color: 0x6b4a30, roughness: 1 }));
     bag.scale.set(1, 1.2, 0.9); bag.position.copy(merchant.position).add(new THREE.Vector3(0.8, 0.5, 0.05)); bag.castShadow = true; this.zoneGroup.add(bag);
+    merchant.userData.editorCompanions=[stall,bag];
     this.addInteract('merchant', 'the merchant', 'Trade with', merchant, 3.6, () => this.tradeWithMerchant());
 
     const tPos = at(0.685, 0.265);
@@ -1162,10 +1196,12 @@ class World3D extends HTMLElement {
     const tent = new THREE.Group();
     const teepee = new THREE.Mesh(new THREE.ConeGeometry(1.8, 2.1, 4), new THREE.MeshStandardMaterial({ color: 0x736751, roughness: 1 })); teepee.rotation.y = Math.PI / 4; teepee.position.y = 1.05; teepee.castShadow = true; tent.add(teepee);
     const entrance = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), new THREE.MeshStandardMaterial({ color: 0x473a2c, side: THREE.DoubleSide })); entrance.position.set(0,0.72,1.12); tent.add(entrance);
+    tent.name='Rest tent';
     tent.position.copy(tentOrigin); this.zoneGroup.add(tent);
     const fire = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.55, 8), new THREE.MeshStandardMaterial({ color: 0xd94f2b, emissive: 0xd94f2b, emissiveIntensity: 2.4 }));
     fire.position.copy(tentOrigin).add(new THREE.Vector3(1.8, 0.28, 0.6)); this.zoneGroup.add(fire);
     const fireLight = new THREE.PointLight(0xd9752b, 1.8, 8); fireLight.position.copy(fire.position).add(new THREE.Vector3(0, 0.45, 0)); this.zoneGroup.add(fireLight);
+    tent.userData.editorCompanions=[fire,fireLight];
     this.addInteract('tent', 'the rest tent', 'Rest at', tent, 3.6, () => this.restAtTent());
 
     const dPositions = [at(0.28, 0.75), at(0.31, 0.75)];
@@ -1174,6 +1210,7 @@ class World3D extends HTMLElement {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.7, 6), new THREE.MeshStandardMaterial({ color: 0x6b5a3f, roughness: 1 })); post.position.y = 0.85; dummy.add(post);
       const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.28, 0.8, 6), new THREE.MeshStandardMaterial({ color: 0x9c8a5f, roughness: 1 })); torso.position.y = 1.55; dummy.add(torso);
       const arms = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.3, 6), new THREE.MeshStandardMaterial({ color: 0x6b5a3f, roughness: 1 })); arms.rotation.z = Math.PI / 2; arms.position.y = 1.75; dummy.add(arms);
+      dummy.name='Training dummy';
       dummy.position.copy(this.worldPos(dp.x, dp.y)); dummy.castShadow = true; this.zoneGroup.add(dummy);
     });
 
@@ -1184,6 +1221,7 @@ class World3D extends HTMLElement {
     const forgeLight = new THREE.PointLight(0xd9752b, 2.1, 8); forgeLight.position.copy(coals.position).add(new THREE.Vector3(0, 0.5, 0)); this.zoneGroup.add(forgeLight);
     const anvilBase = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.3, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.6, metalness: 0.4 })); anvilBase.position.copy(anvilOrigin).add(new THREE.Vector3(0, 0.25, 0)); anvilBase.castShadow = true; this.zoneGroup.add(anvilBase);
     const anvilTop = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.28, 0.44), new THREE.MeshStandardMaterial({ color: 0x232323, roughness: 0.4, metalness: 0.6 })); anvilTop.position.copy(anvilOrigin).add(new THREE.Vector3(0, 0.62, 0)); anvilTop.castShadow = true; this.zoneGroup.add(anvilTop);
+    anvilBase.userData.editorCompanions=[anvilTop,forgeBox,coals,forgeLight];
     this.addInteract('anvil', 'the anvil', 'Work', anvilBase, 3.4, () => this.workAnvil());
 
     this.buildPootal(.5,.14);
@@ -1297,6 +1335,7 @@ class World3D extends HTMLElement {
   }
 
   saveProgress(overrides = {}) {
+    if (this.editorMode || this.levelPreview) return;
     try {
       const s = this.state;
       localStorage.setItem(this.saveKey, JSON.stringify({ characterName:s.characterName, discipline:s.discipline, level:s.level, xp:s.xp, growthFocus:s.growthFocus, vitality:s.vitality, might:s.might, arcana:s.arcana, endurance:s.endurance, bossDefeated:s.bossDefeated, bossKills:s.bossKills, pootalKeys:s.pootalKeys, zone:s.zone, ...overrides }));
@@ -1516,6 +1555,7 @@ class World3D extends HTMLElement {
       });
     }
     this.zone = zone;
+    this.levelCollision = new Map();
     this.cols = zone.cols || DEFAULT_COLS;
     this.rows = zone.rows || DEFAULT_ROWS;
     this.w = this.cols * TILE;
@@ -1541,7 +1581,8 @@ class World3D extends HTMLElement {
       surfaceTex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
       this.buildTerrain(surfaceTex);
     }
-    this.buildWater();
+    if (zone.id === 'stillwater') this.buildStillwaterWater();
+    else this.buildWater();
     this.buildRealmHorizon();
     this.buildProps();
     if(zone.id==='stillwater')this.buildStillwaterPier();
@@ -1580,8 +1621,12 @@ class World3D extends HTMLElement {
     this.state.mode = 'roam';
     this.state.bossBattle = false;
     this.state.target = null;
+    captureLevel(this);
+    await applyProject(this, this.levelProject);
+    if (fromDir === 'pootal') {const tile=this.nearestWalkable(this.pootalTile.x,this.pootalTile.y+2)||this.pootalTile;this.spawn=tile;this.playerObj.position.copy(this.worldPos(tile.x,tile.y));}
     this.recenter();
     this.emit();
+    this.dispatchEvent(new CustomEvent("leveleditorready"));
   }
 
   async traversePootal(next){
@@ -2108,6 +2153,7 @@ class World3D extends HTMLElement {
   }
 
   resize() {
+    this._editorNeedsRender=true;
     const w = this.clientWidth, h = this.clientHeight;
     if (!w || !h || w < 4 || h < 4) { requestAnimationFrame(() => this.resize()); return; }
     this.renderer.setSize(w, h, false);
@@ -2130,13 +2176,18 @@ class World3D extends HTMLElement {
   }
 
   update(dt, time) {
-    const wp = this.water.geometry.attributes.position;
-    for (let i = 0; i < wp.count; i++) {
-      const bx = this.waterBase[i * 3], bz = this.waterBase[i * 3 + 2];
-      wp.setY(i, Math.sin(time * 1.6 + bx * 0.5 + bz * 0.35) * 0.09 + Math.cos(time * 1.2 + bx * 0.15) * 0.03);
+    if (this.editorMode) return;
+    // Preserve the original waves in other realms, but do no per-frame water
+    // work at all in Stillwater Basin (including opacity changes).
+    if (this.zone.id !== 'stillwater' && this.water && this.waterBase) {
+      const wp = this.water.geometry.attributes.position;
+      for (let i = 0; i < wp.count; i++) {
+        const bx = this.waterBase[i * 3], bz = this.waterBase[i * 3 + 2];
+        wp.setY(i, Math.sin(time * 1.6 + bx * 0.5 + bz * 0.35) * 0.09 + Math.cos(time * 1.2 + bx * 0.15) * 0.03);
+      }
+      wp.needsUpdate = true;
+      this.water.material.opacity = (this.zone.id === 'steppe' ? 0.52 : this.zone.id === 'ember' ? 0.62 : 0.74) + Math.sin(time * 0.55) * 0.03;
     }
-    wp.needsUpdate = true;
-    if (this.water && this.water.material) { this.water.material.opacity = (this.zone.id === 'steppe' ? 0.52 : this.zone.id === 'ember' ? 0.62 : 0.74) + Math.sin(time * 0.55) * 0.03; }
     if (this.ambientFX) this.ambientFX.forEach((f,i)=>{ f.sp.position.y += Math.sin(time*f.speed+f.phase)*0.0018; f.sp.material.opacity = (this.zone.id === 'steppe' ? 0.08 : 0.16) + (Math.sin(time*(0.8+f.speed)+f.phase)+1)*0.18; });
     if (this.mistFX) this.mistFX.forEach((m,i)=>{ m.sp.position.x += Math.sin(time*m.speed+m.phase)*0.002; m.sp.position.z += Math.cos(time*m.speed*0.8+m.phase)*0.002; m.sp.material.opacity = (this.zone.id === 'steppe' ? 0.04 : 0.08) + (Math.sin(time*m.speed+m.phase)+1)*0.025; });
     if (this.merchantBillboard?.userData?.billboard) {
