@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.4';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.4';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.5';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.5';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -635,7 +635,7 @@ pootalDialog.setAttribute('aria-labelledby','pootalTitle');pootalDialog.setAttri
 pootalDialog.innerHTML='<button class="pootal-close" aria-label="Close realm selection">×</button><p class="pootal-eyebrow">THE ANCIENT WAYPOINTS</p><h2 id="pootalTitle">Traverse the Brown</h2><p id="pootalMessage"></p><div class="pootal-realms"></div><p class="pootal-footnote">Sigils awaken waypoints permanently. Every return leads through A’jol.</p>';
 document.body.appendChild(pootalDialog);
 const realmIcon=kind=>{
- const paths={portal:'<circle cx="48" cy="43" r="27"/><circle cx="48" cy="43" r="19"/><path d="M20 75h56M27 67v8m42-8v8M48 16v8M21 43h8m38 0h8M48 62v8"/>',willow:'<path d="M48 78V30m0 14L31 29m17 12 18-14M19 61V38Q19 13 48 13t29 25v23M28 66V38q0-16 20-16t20 16v28M38 61V34m20 0v27M36 79h25"/>',terraces:'<path d="M12 76h72V64H69V52H54V40H39V28H24v12H12zM12 64h57M12 52h42M24 40h15M61 32q-8-7 0-14m13 24q-8-8 0-15"/>',mushroom:'<path d="M14 48q3-26 34-26t34 26zM38 49l-5 29h30l-5-29M29 36l6-4m25 1 6 5M45 33h7M43 18q-7-7 1-14m12 14q-5-5 1-10"/>'};
+ const paths={portal:'<circle cx="48" cy="43" r="27"/><circle cx="48" cy="43" r="19"/><path d="M20 75h56M27 67v8m42-8v8M48 16v8M21 43h8m38 0h8M48 62v8"/>',willow:'<path d="M48 78V30m0 14L31 29m17 12 18-14M19 61V38Q19 13 48 13t29 25v23M28 66V38q0-16 20-16t20 16v28M38 61V34m20 0v27M36 79h25"/>',terraces:'<path d="M12 76h72V64H69V52H54V40H39V28H24v12H12zM12 64h57M12 52h42M24 40h15M61 32q-8-7 0-14m13 24q-8-8 0-15"/>',bazaar:'<path d="M10 71h76M18 66V34h60v32M18 34l9-14h42l9 14M30 66V45h16v21M57 46h12v11H57zM25 77h46"/>',mushroom:'<path d="M14 48q3-26 34-26t34 26zM38 49l-5 29h30l-5-29M29 36l6-4m25 1 6 5M45 33h7M43 18q-7-7 1-14m12 14q-5-5 1-10"/>'};
  return `<svg viewBox="0 0 96 96" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${paths[kind]||paths.portal}</svg>`;
 };
 let pootalSignature='';

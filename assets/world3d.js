@@ -1,4 +1,4 @@
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.5.2';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.5.6';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -51,6 +51,11 @@ const ZONES = {
     blurb: 'A willow-choked wetland where amber sap weeps from old trees and every crossing feels remembered.',
     foes: ['Ash Revenant', 'Mire Stalker', 'Bone Suppliant', 'Hollow Warden'],
     hp: 88, damage: [12,18], cols: 34, rows: 34
+  },
+  stillwater: {
+    id: 'stillwater', name: 'Bayou Bazaar · Stillwater Basin', mood: 'dusk', mask: 'assets/mask-stillwater.png', surface: 'assets/ground-stillwater.png',
+    blurb: 'At the perfectly balanced crossroads of Exchange, Ol’ Mudd and the Gullet welcome every traveler. Nothing is owned; all is borrowed.',
+    foes: [], hp: 0, safe: true, cols: 34, rows: 34
   },
   steppe: {
     id: 'steppe', name: 'Assfall Steppes', mood: 'overcast', mask: 'assets/map-steppe-bf.png', surface: 'assets/ground-steppe-authored.png',
@@ -463,8 +468,27 @@ class World3D extends HTMLElement {
 
   walkable(x, y) {
     if (x < 0 || y < 0 || x >= this.cols || y >= this.rows) return false;
+    // The adventure-realm masks are legacy concept paintings, not authored
+    // collision maps. Keep a one-tile perimeter so the player cannot reach
+    // the map edge, but do not let dark painted pixels create invisible walls.
+    // Water remains blocked; visible props can receive deliberate collision
+    // later if a specific encounter needs it.
+    if(this.zone?.id==='stillwater' && this.bayouDeckAt(x,y)) return true;
+    if (this.zone?.id !== 'hearth') {
+      if (x < 1 || y < 1 || x >= this.cols - 1 || y >= this.rows - 1) return false;
+      return this.type[y * this.cols + x] !== WATER;
+    }
     const t = this.type[y * this.cols + x];
     return t === GROUND || t === PATH;
+  }
+
+  bayouDeckAt(x,y) {
+    if(this.zone?.id!=='stillwater')return false;
+    // The deck and pier remain boardable even over deep water. Grid coordinates.
+    if(x>=17.0&&x<=31.0&&y>=11.7&&y<=18.5)return true;
+    const ax=11.2,ay=22.5,bx=18.0,by=17.0;
+    const dx=bx-ax,dy=by-ay,t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/(dx*dx+dy*dy)));
+    return Math.hypot(x-(ax+t*dx),y-(ay+t*dy))<1.12;
   }
 
   hAt(x, y) {
@@ -478,12 +502,12 @@ class World3D extends HTMLElement {
   }
 
   worldPos(x, y, lift = 0) {
-    return new THREE.Vector3((x + 0.5) * TILE - this.w / 2, this.hAt(x, y) + lift, (y + 0.5) * TILE - this.h / 2);
+    return new THREE.Vector3((x + 0.5) * TILE - this.w / 2, (this.zone?.id==='stillwater'&&this.bayouDeckAt(x,y)?1.05:this.hAt(x, y)) + lift, (y + 0.5) * TILE - this.h / 2);
   }
   gridOf(vx, vz) { return { x: (vx + this.w / 2) / TILE - 0.5, y: (vz + this.h / 2) / TILE - 0.5 }; }
   tileAt(v) { return { x: Math.floor((v.x + this.w / 2) / TILE), y: Math.floor((v.z + this.h / 2) / TILE) }; }
   freeAt(vx, vz) { const t = this.tileAt({ x: vx, z: vz }); return this.walkable(t.x, t.y); }
-  groundY(v) { const g = this.gridOf(v.x, v.z); return this.hAt(g.x, g.y); }
+  groundY(v) { const g = this.gridOf(v.x, v.z); return this.zone?.id==='stillwater'&&this.bayouDeckAt(g.x,g.y)?1.05:this.hAt(g.x,g.y); }
 
   slide(obj, dir, dist) {
     const p = obj.position;
@@ -559,7 +583,7 @@ class World3D extends HTMLElement {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(Math.max(2.4, this.cols / 7.5), Math.max(2.4, this.rows / 7.5));
+    tex.repeat.set(this.zone.id==='stillwater'?1:Math.max(2.4, this.cols / 7.5), this.zone.id==='stillwater'?1:Math.max(2.4, this.rows / 7.5));
     tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     tex.needsUpdate = true;
 
@@ -622,7 +646,7 @@ class World3D extends HTMLElement {
 
   buildRealmHorizon() {
     // Shared instanced terrain surrounds the unwalkable edges of each realm.
-    const colors={hearth:[0x242c22,0x333b2c],fords:[0x202f2c,0x344038],steppe:[0x554534,0x6d5941],ember:[0x291b18,0x483028]}[this.zone.id];
+    const colors={hearth:[0x242c22,0x333b2c],fords:[0x202f2c,0x344038],steppe:[0x554534,0x6d5941],ember:[0x291b18,0x483028],stillwater:[0x142c26,0x2e4535]}[this.zone.id];
     const floor=new THREE.Mesh(new THREE.PlaneGeometry(this.w+110,this.h+110),new THREE.MeshBasicMaterial({color:colors[0],side:THREE.DoubleSide}));
     floor.name='distant-land';floor.rotation.x=-Math.PI/2;floor.position.y=-1.8;this.zoneGroup.add(floor);
     const rim=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshStandardMaterial({color:colors[1],roughness:1,flatShading:true}),64);
@@ -637,6 +661,7 @@ class World3D extends HTMLElement {
   }
 
   buildProps() {
+    if(this.zone.id==='stillwater'){this.buildStillwaterWillows();this.buildAmbientParticles();return;}
     const rockSpots = [], groundSpots = [], pathSpots = [], waterEdge = [];
     for (let y = 1; y < this.rows - 1; y++) for (let x = 1; x < this.cols - 1; x++) {
       const t = this.type[y * this.cols + x];
@@ -751,6 +776,50 @@ class World3D extends HTMLElement {
       else if (this.zone.id === 'steppe' && i % 2 === 0) this.ruinMarker(x, y, 0.78 + (i % 5) * 0.1, true);
     });
     this.buildAmbientParticles();
+  }
+
+  buildStillwaterWillows() {
+    // Curated positions referenced from the first approved aerial tree composition,
+    // translated to the 34x34 ground map. No trees painted into the surface.
+    const positions=[[1.9,5.4,1.15],[4.0,12.4,1.05],[2.1,18.6,1.06],[2.0,29.5,1.15],
+      [8.4,1.9,1.22],[13.6,2.0,0.88],[23.6,1.4,1.12],[32.0,5.8,1.2],
+      [32.0,10.8,1.0],[31.1,24.7,1.05],[30.6,31.0,1.1],[22.7,31.4,0.9],
+      [16.1,30.0,1.06],[6.4,32.2,0.9],[5.4,16.8,0.75]];
+    for(const [x,y,scale] of positions)this.placeWillowModel(x,y,scale);
+  }
+
+  buildStillwaterPier() {
+    const wood=new THREE.MeshStandardMaterial({color:0x65503a,roughness:.94});
+    const alternate=new THREE.MeshStandardMaterial({color:0x786044,roughness:.96});
+    const dark=new THREE.MeshStandardMaterial({color:0x332d23,roughness:1});
+    const bronze=new THREE.MeshStandardMaterial({color:0x998058,metalness:.2,roughness:.7});
+    const make=(name,w,h,d,at,mat=wood)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.name=name;m.position.copy(at);this.zoneGroup.add(m);return m;};
+    // A simple 60ft-inspired pontoon placeholder. This is an accessible blockout,
+    // NOT the approved finished Gullet exterior model.
+    const c=this.worldPos(24,15);const deckY=1.05;
+    make('gullet-placeholder-pontoon-left',29,.95,1.5,new THREE.Vector3(c.x,-.05,c.z-5.5),dark);
+    make('gullet-placeholder-pontoon-right',29,.95,1.5,new THREE.Vector3(c.x,-.05,c.z+5.5),dark);
+    make('gullet-placeholder-main-deck',30,.35,13,new THREE.Vector3(c.x,deckY-.22,c.z),wood);
+    for(let i=0;i<16;i++){const x=c.x-14+i*1.85;make('gullet-deck-board-'+i,1.76,.06,12.7,new THREE.Vector3(x,deckY-.017,c.z),i%3?wood:alternate);}
+    // Soft, humble canopy and stalls; placeholder until dedicated Gullet model.
+    for(let i=0;i<5;i++){const x=c.x-11+i*5.4;for(const z of [c.z-4.5,c.z+4.5])make('gullet-canopy-post',.22,3.0,.22,new THREE.Vector3(x,deckY+1.5,z),dark);}
+    const cloth=new THREE.MeshStandardMaterial({color:0x96816a,side:THREE.DoubleSide,roughness:1,transparent:true,opacity:.88});
+    make('gullet-placeholder-canopy',25,.09,9.8,new THREE.Vector3(c.x,deckY+3.04,c.z),cloth);
+    for(let i=0;i<5;i++){const x=c.x-10+i*4.8;make('gullet-market-stall',2,.85,1.15,new THREE.Vector3(x,deckY+.45,c.z-3.1),alternate);}
+    // Physically connected: source shore -> rising pole-supported pier -> 
+    // boarding ramp meeting the deck at exactly deckY.
+    const points=[[11.2,22.5],[12.5,21.4],[13.9,20.25],[15.3,19.1],[16.6,18.0],[18.0,17.0]];
+    const coords=points.map(([x,y])=>this.worldPos(x,y));
+    for(let j=0;j<coords.length-1;j++){const a=coords[j],b=coords[j+1],mid=a.clone().add(b).multiplyScalar(.5);
+      const dx=b.x-a.x,dz=b.z-a.z,L=Math.hypot(dx,dz);const ang=-Math.atan2(dz,dx);
+      const startY=j===0?.68:deckY;const endY=deckY;
+      const surfaceY=(startY+endY)/2;
+      for(let n=0;n<4;n++){const f=(n+.5)/4;const bx=a.x+dx*f,bz=a.z+dz*f;const plank=make('stillwater-pier-plank',L/4-.06,.15,3.35,new THREE.Vector3(bx,surfaceY-.09,bz),n%2?wood:alternate);plank.rotation.y=ang;}
+      for(const f of [.15,.85])for(const side of [-1,1]){const px=a.x+dx*f+Math.sin(ang)*side*1.4,pz=a.z+dz*f+Math.cos(ang)*side*1.4;make('pier-support-post',.22,2.0,.22,new THREE.Vector3(px,.12,pz),dark);}
+    }
+    // Last walking surface slightly overlaps the pontoon deck so there is no gap.
+    make('gullet-boarding-connection',3.2,.14,3.0,new THREE.Vector3(coords.at(-1).x,deckY-.04,coords.at(-1).z),alternate);
+    this.bayouDockMetadata={from:points[0],to:points.at(-1),deckHeight:deckY,editable:true};
   }
 
   placeEmberMushroomModel(x, y, targetHeight=3, seed=0) {
@@ -1283,7 +1352,7 @@ class World3D extends HTMLElement {
   }
   openPootal(){
     if(!this.atPootal()||this.paused||this._travelling||this.state.mode!=='roam'||this.act_||this.dodging)return;
-    const message=this.zone.id==='hearth'?'Choose a realm. The Brown remembers every passage.':`Return to A’jol at any time. Defeat ${realmInfo(this.zone.id).boss} to recover its sigil and unlock the next passage.`;
+    const message=this.zone.id==='hearth'?'Choose a realm. The Brown remembers every passage.':this.zone.id==='stillwater'?'The Bayou Bazaar welcomes all who pass through. Return to A’jol whenever you wish.':`Return to A’jol at any time. Defeat ${realmInfo(this.zone.id).boss} to recover its sigil and unlock the next passage.`;
     this.state.pootalDialog={from:this.zone.id,title:'Traverse the Brown',message,choices:realmChoices(this.zone.id,this.state.pootalKeys)};
     this.setPaused(true);
   }
@@ -1475,9 +1544,10 @@ class World3D extends HTMLElement {
     this.buildWater();
     this.buildRealmHorizon();
     this.buildProps();
+    if(zone.id==='stillwater')this.buildStillwaterPier();
     await this.buildActors(fromDir);
     this.interactables = [];this.hearthPortal=null;this.hearthCrystal=null;this.merchantBillboard=null;this.state.interact=null;
-    if (zone.id === 'hearth') this.buildHearthFeatures();else this.buildPootal();
+    if (zone.id === 'hearth') this.buildHearthFeatures();else if(zone.id==='stillwater')this.buildPootal(.23,.73);else this.buildPootal();
     // Leave character shadows intact, but exclude all static props and portal
     // details from the expensive second (shadow-map) render pass.
     const actorRoots=new Set([this.playerObj,...this.enemies.map(e=>e.obj)]);
@@ -1487,7 +1557,7 @@ class World3D extends HTMLElement {
       while (parent && !actorRoots.has(parent)) parent=parent.parent;
       if (!parent) o.castShadow=false;
     });
-    if(fromDir==='pootal'){const t=this.nearestWalkable(this.pootalTile.x,this.pootalTile.y+2)||this.pootalTile;this.spawn=t;this.playerObj.position.copy(this.worldPos(t.x,t.y));}
+    if(fromDir==='pootal'){const t=this.nearestWalkable(this.pootalTile.x,this.pootalTile.y+(zone.id==='stillwater'?1:2))||this.pootalTile;this.spawn=t;this.playerObj.position.copy(this.worldPos(t.x,t.y));}
 
     this._mood = null;
     this.setMood(zone.mood);
@@ -1502,7 +1572,7 @@ class World3D extends HTMLElement {
       this.state.hp=this.state.hpMax; this.state.stam=this.state.stamMax; this.state.focus=this.state.focusMax;
       this.state.flasks=this.state.flasksMax; this.state.shield=0; this.shieldT=0;if(this.shieldVisual)this.shieldVisual.visible=false;
     }
-    this.state.objective=zone.id==='hearth'?'Approach or select the Pootal to choose your next realm.':`Defeat ${realmInfo(zone.id).boss} to claim its sigil. You may return to A’jol through the Pootal at any time.`;
+    this.state.objective=zone.id==='hearth'?'Approach or select the Pootal to choose your next realm.':zone.id==='stillwater'?'Explore the Bayou Bazaar. The Pootal returns to A’jol.':`Defeat ${realmInfo(zone.id).boss} to claim its sigil. You may return to A’jol through the Pootal at any time.`;
     this.lockOn = null;
     this.lockRing.visible = false;
     this.tellRing.material.opacity = 0;
@@ -1521,7 +1591,7 @@ class World3D extends HTMLElement {
     try{
       await this.buildZone(zone,'pootal');
       this.state.log=zone.blurb;
-      this.state.objective=next==='hearth'?'Approach or select the Pootal to choose your next realm.':`Defeat ${realmInfo(next).boss} to claim its sigil. You may return to A’jol through the Pootal at any time.`;
+      this.state.objective=next==='hearth'?'Approach or select the Pootal to choose your next realm.':next==='stillwater'?'Explore the Bayou Bazaar. The Pootal returns to A’jol.':`Defeat ${realmInfo(next).boss} to claim its sigil. You may return to A’jol through the Pootal at any time.`;
       this.saveProgress();
     }catch(error){
       console.error('Pootal travel failed',error);
