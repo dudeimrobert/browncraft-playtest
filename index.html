@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Browncraft — Alpha 2.5.9</title>
+  <title>Browncraft — Alpha 2.6.0</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
@@ -51,7 +51,7 @@
         </div>
       </div>
       <div class="original-login-footer">
-        <span>Alpha 2.5.9 · REALM WORKSHOP</span>
+        <span>Alpha 2.6.0 · REALM WORKSHOP</span>
         <button id="soundBtn" type="button">Sound · On</button>
       </div>
     </section>
@@ -91,14 +91,29 @@
         <form id="newCharacterForm" class="creator-card">
           <div class="creator-title"><span>Create Wanderer</span><button id="closeCreatorBtn" type="button">×</button></div>
           <label class="creator-name"><span>Name</span><input id="newCharacterName" maxlength="18" autocomplete="off" placeholder="Name your wanderer" required /></label>
-          <div class="creator-label">Starting Discipline</div>
-          <div class="discipline-grid">
-            <button type="button" data-discipline="knight" class="active"><strong>Knight</strong><small>Balanced</small><em>Fiber 2 · Pressure 2 · Brown 2 · Gut 2</em></button>
-            <button type="button" data-discipline="brute"><strong>Brute</strong><small>Higher vitality</small><em>Fiber 4 · Pressure 2 · Brown 1 · Gut 1</em></button>
-            <button type="button" data-discipline="caster"><strong>Warlock</strong><small>Brown arts</small><em>Fiber 1 · Pressure 1 · Brown 4 · Gut 2</em></button>
-            <button type="button" data-discipline="rogue"><strong>Rogue</strong><small>Faster stamina recovery</small><em>Fiber 1 · Pressure 2 · Brown 2 · Gut 3</em></button>
+          <div class="creator-label">Frog Archetype <small>— placeholders, all classes available</small></div>
+          <div class="frog-type-grid" id="frogTypeGrid">
+            <button type="button" data-frog="tree" class="active">🐸 <strong>Tree Frog</strong><small>Lean · lanky</small></button>
+            <button type="button" data-frog="bull">🐸 <strong>Bullfrog</strong><small>Broad · robust</small></button>
+            <button type="button" data-frog="dart">🐸 <strong>Dart Frog</strong><small>Small · vivid</small></button>
+            <button type="button" data-frog="horned">🐸 <strong>Horned Frog</strong><small>Round · stout</small></button>
+            <button type="button" data-frog="glass">🐸 <strong>Glass Frog</strong><small>Slender · pale</small></button>
+            <button type="button" data-frog="toad">🐸 <strong>Swamp Toad</strong><small>Stocky · earthy</small></button>
           </div>
-          <p class="creator-note">Your discipline only shapes your starting strengths. Every wanderer can grow in any direction through Browncraft.</p>
+          <div class="creator-label">Appearance</div>
+          <div class="frog-appearance-controls">
+            <label>Head <input id="frogHead" type="range" min="85" max="125" value="110"/><output id="frogHeadOut">110%</output></label>
+            <label>Build <input id="frogBuild" type="range" min="85" max="120" value="100"/><output id="frogBuildOut">100%</output></label>
+            <label>Skin <input id="frogColor" type="color" value="#789c55"/></label>
+          </div>
+          <div class="creator-label">Class</div>
+          <div class="discipline-grid">
+            <button type="button" data-discipline="knight" class="active"><strong>Knight</strong><small>Steel, guard & balance</small></button>
+            <button type="button" data-discipline="caster"><strong>Warlock</strong><small>Brown arts & curses</small></button>
+            <button type="button" data-discipline="rogue"><strong>Rogue</strong><small>Speed & precision</small></button>
+            <button type="button" data-discipline="shaman"><strong>Shaman</strong><small>Primal rites & resilience</small></button>
+          </div>
+          <p class="creator-note">Your frog determines appearance, not stats. Each class begins with modest starter gear; future talents may branch into other playstyles.</p>
           <button class="creator-submit" type="submit">Create Character</button>
         </form>
       </div>

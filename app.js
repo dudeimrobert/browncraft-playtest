@@ -12,18 +12,15 @@ const panel = q('#menuPanel');
 const bag=q('#bag'), bagGrid=q('#bagGrid'), bagTooltip=q('#bagTooltip');
 let bagSignature='';
 function carriedItems(s){
-  const items=[
-    {icon:'◒',name:'Brown Flask',type:'Consumable',details:`${s.flasks} / ${s.flasksMax} charges · Restores health`,flavor:'A little courage for the road.'},
-    {icon:'⚔',name:'Rustbound Blade',type:'Weapon · Right Hand',details:'Knight melee weapon · Scales with Pressure',flavor:'Still sharp enough to make a point.'},
-    {icon:'⬟',name:'Wooden Guard',type:'Shield · Left Hand',details:'Guard equipment · Blocking uses stamina',flavor:'Splintered, but steadfast.'},
-    {icon:'▤',name:'Bogmail',type:'Armor · Body',details:'Starter armor · Defense is reflected in your current stats',flavor:'Worn into shape by the swamp.'}
-  ];
-  for(const [id,name,flavor] of [['fords','Fragment of Return','The first thread of the greater mystery.'],['steppe','Fragment of Pressure','A weight held inside the Brown.'],['ember','Fragment of Release','A spark awaiting its purpose.']]) if(s.pootalKeys?.[id]) items.push({icon:'✦',name,type:'Quest item · Guardian Fragment',details:'Recovered · Persists through death',flavor});
+  const profile=selectedProfile(),gear=getGear(profile);
+  const items=[{icon:'◒',name:'Brown Flask',type:'Consumable',details:`${s.flasks} / ${s.flasksMax} charges`,flavor:'A little courage for the road.'}];
+  for(const id of gear?.inventory||[])if(GEAR[id])items.push({id,...GEAR[id],type:'Unequipped gear',details:GEAR[id].stat,flavor:'Click to equip to its designated slot.'});
+  for(const [id,name,flavor] of [['fords','Fragment of Return','The first thread of the greater mystery.'],['steppe','Fragment of Pressure','A weight held inside the Brown.'],['ember','Fragment of Release','A spark awaiting its purpose.']])if(s.pootalKeys?.[id])items.push({icon:'✦',name,type:'Quest item',details:'Recovered',flavor});
   return items;
 }
 function hideBagTooltip(){bagTooltip.hidden=true;}
 function positionBagTooltip(e){const x=Math.min(e.clientX+18,innerWidth-bagTooltip.offsetWidth-12),y=Math.min(e.clientY+18,innerHeight-bagTooltip.offsetHeight-12);bagTooltip.style.left=Math.max(8,x)+'px';bagTooltip.style.top=Math.max(8,y)+'px';}
-function renderBag(){if(bag.hidden||!state)return;const items=carriedItems(state),signature=JSON.stringify(items);if(signature===bagSignature)return;bagSignature=signature;bagGrid.innerHTML=Array.from({length:30},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" aria-label="${esc(items[i].name)}"><span>${items[i].icon}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:''}</button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');bagGrid.querySelectorAll('[data-slot]').forEach(slot=>{const item=items[Number(slot.dataset.slot)];const show=e=>{bagTooltip.innerHTML=`<strong>${esc(item.name)}</strong><small>${esc(item.type)}</small><p>${esc(item.details)}</p><i>${esc(item.flavor)}</i>`;bagTooltip.hidden=false;const r=slot.getBoundingClientRect();positionBagTooltip(e.clientX===undefined?{clientX:r.right,clientY:r.top}:e)};slot.addEventListener('pointerenter',show);slot.addEventListener('pointermove',positionBagTooltip);slot.addEventListener('pointerleave',hideBagTooltip);slot.addEventListener('focus',show);slot.addEventListener('blur',hideBagTooltip);});}
+function renderBag(){if(bag.hidden||!state)return;const items=carriedItems(state),signature=JSON.stringify(items);if(signature===bagSignature)return;bagSignature=signature;bagGrid.innerHTML=Array.from({length:30},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" aria-label="${esc(items[i].name)}"><span>${items[i].icon||'◈'}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:''}</button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');bagGrid.querySelectorAll('[data-slot]').forEach(slot=>{const item=items[Number(slot.dataset.slot)];const show=e=>{bagTooltip.innerHTML=`<strong>${esc(item.name)}</strong><small>${esc(item.type)}</small><p>${esc(item.details)}</p><i>${esc(item.flavor)}</i>`;bagTooltip.hidden=false;const r=slot.getBoundingClientRect();positionBagTooltip(e.clientX===undefined?{clientX:r.right,clientY:r.top}:e)};slot.addEventListener('pointerenter',show);slot.addEventListener('pointermove',positionBagTooltip);slot.addEventListener('pointerleave',hideBagTooltip);slot.addEventListener('focus',show);slot.addEventListener('blur',hideBagTooltip);if(item.id)slot.addEventListener('click',()=>transferGear(selectedProfile(),item.id,'inventory'));});}
 function openBag(){if(!world||game.hidden||state?.loading||state?.mode==='dead'||state?.pootalDialog)return;if(!menu.hidden)closeMenu();bag.hidden=false;world.setPaused?.(true);bagSignature='';renderBag();q('#bagClose').focus();}
 function closeBag(){if(bag.hidden)return;bag.hidden=true;hideBagTooltip();world?.setPaused?.(false);}
 q('#bagClose').addEventListener('click',closeBag);
@@ -101,11 +98,46 @@ const CHAR_KEY = 'browncraft-alpha11-characters';
 const LEGACY_SAVE = 'browncraft-build05-progress';
 const MAX_CHARACTERS = 8;
 const DISCIPLINES = {
-  knight: { label: 'Knight', blurb: 'Balanced', vitality: 2, might: 2, arcana: 2, endurance: 2, stamRegen: 1 },
-  brute: { label: 'Brute', blurb: 'Higher vitality', vitality: 4, might: 2, arcana: 1, endurance: 1, stamRegen: 1 },
-  caster: { label: 'Warlock', blurb: 'Brown arts / casting', vitality: 1, might: 1, arcana: 4, endurance: 2, stamRegen: 1 },
-  rogue: { label: 'Rogue', blurb: 'Faster stamina recovery', vitality: 1, might: 2, arcana: 2, endurance: 3, stamRegen: 1.4 }
+  knight: { label: 'Knight', blurb: 'Steel and steadfast guard', vitality: 2, might: 2, arcana: 2, endurance: 2, stamRegen: 1 },
+  caster: { label: 'Warlock', blurb: 'Forbidden Brown arts', vitality: 1, might: 1, arcana: 4, endurance: 2, stamRegen: 1 },
+  rogue: { label: 'Rogue', blurb: 'Speed and precision', vitality: 1, might: 2, arcana: 2, endurance: 3, stamRegen: 1.4 },
+  shaman: { label: 'Shaman', blurb: 'Primal rites and renewal', vitality: 2, might: 1, arcana: 3, endurance: 2, stamRegen: 1.12 }
 };
+const FROGS = {
+  tree:{label:'Tree Frog',scale:1,wide:.94,color:'#789c55'},
+  bull:{label:'Bullfrog',scale:1.1,wide:1.12,color:'#6f8650'},
+  dart:{label:'Dart Frog',scale:.89,wide:.94,color:'#389cbd'},
+  horned:{label:'Horned Frog',scale:.98,wide:1.2,color:'#aaa054'},
+  glass:{label:'Glass Frog',scale:.95,wide:.88,color:'#9bbc98'},
+  toad:{label:'Swamp Toad',scale:1.04,wide:1.15,color:'#857050'}
+};
+const GEAR = {
+  rusty_sword:{name:'Rusty Sword',slot:'mainHand',stat:'Pressure +1',bonus:{might:1},icon:'⚔'},
+  wooden_guard:{name:'Wooden Guard',slot:'offhand',stat:'Fiber +1',bonus:{vitality:1},icon:'⬟'},
+  worn_tunic:{name:'Worn Tunic',slot:'chest',stat:'Fiber +1',bonus:{vitality:1},icon:'▤'},
+  warped_wand:{name:'Warped Wand',slot:'mainHand',stat:'Brown +1',bonus:{arcana:1},icon:'✧'},
+  faded_robe:{name:'Faded Robe',slot:'chest',stat:'Brown +1',bonus:{arcana:1},icon:'▥'},
+  dull_dagger:{name:'Dull Dagger',slot:'mainHand',stat:'Pressure +1',bonus:{might:1},icon:'⚔'},
+  patched_vest:{name:'Patched Vest',slot:'chest',stat:'Gut +1',bonus:{endurance:1},icon:'▤'},
+  branch_staff:{name:'Carved Branch',slot:'mainHand',stat:'Brown +1',bonus:{arcana:1},icon:'☘'},
+  moss_wrap:{name:'Mossbound Wrap',slot:'chest',stat:'Fiber +1',bonus:{vitality:1},icon:'▤'},
+  cracked_helm:{name:'Cracked Helm',slot:'head',stat:'Fiber +1',bonus:{vitality:1},icon:'♜'},
+  mossy_boots:{name:'Mossy Boots',slot:'feet',stat:'Gut +1',bonus:{endurance:1},icon:'♧'}
+};
+const GEAR_SLOTS={head:'Head',chest:'Chest',hands:'Hands',legs:'Legs',feet:'Feet',mainHand:'Main Hand',offhand:'Offhand',accessory:'Accessory'};
+const STARTER_GEAR={
+  knight:{mainHand:'rusty_sword',offhand:'wooden_guard',chest:'worn_tunic'},
+  caster:{mainHand:'warped_wand',chest:'faded_robe'},
+  rogue:{mainHand:'dull_dagger',chest:'patched_vest'},
+  shaman:{mainHand:'branch_staff',chest:'moss_wrap'}
+};
+const gearKeyFor=id=>`browncraft-gear-v1:${id}`;
+function getGear(profile){if(!profile)return null;let data;try{data=JSON.parse(localStorage.getItem(gearKeyFor(profile.id))||'null')}catch{};return data&&typeof data==='object'&&Array.isArray(data.inventory)&&data.equipped?data:{equipped:{...STARTER_GEAR[profile.discipline]||STARTER_GEAR.knight},inventory:[]};}
+function saveGear(profile,data){localStorage.setItem(gearKeyFor(profile.id),JSON.stringify(data));}
+function transferGear(profile,itemId,source){const data=getGear(profile),item=GEAR[itemId];if(!data||!item)return false;if(source==='inventory') {const ix=data.inventory.indexOf(itemId);if(ix<0)return false;data.inventory.splice(ix,1);const previous=data.equipped[item.slot];if(previous)data.inventory.push(previous);data.equipped[item.slot]=itemId;}else{if(data.equipped[item.slot]!==itemId)return false;delete data.equipped[item.slot];data.inventory.push(itemId);}saveGear(profile,data);updateGearOnWorld(profile);return true;}
+function gearBonuses(profile){const bonuses={vitality:0,might:0,arcana:0,endurance:0};Object.values(getGear(profile)?.equipped||{}).forEach(id=>{Object.entries(GEAR[id]?.bonus||{}).forEach(([key,value])=>bonuses[key]+=value)});return bonuses;}
+function updateGearOnWorld(profile){if(world&&profile?.id===selectedProfile()?.id){world.characterGear=getGear(profile);world.dispatchEvent(new CustomEvent('character-gear-changed',{detail:world.characterGear}));}bagSignature='';if(!menu.hidden)renderMenu();if(!bag.hidden)renderBag();}
+
 
 let world = null;
 let state = null;
@@ -114,6 +146,7 @@ let layout = localStorage.getItem('browncraft-control-layout') || (matchMedia('(
 let characters = loadCharacters();
 let selectedCharacterId = characters[0]?.id || null;
 let selectedDiscipline = 'knight';
+let selectedFrog = 'tree';
 let preview = null;
 let authMode = 'guest';
 let skeletonDebug = false;
@@ -388,6 +421,7 @@ function openCharacterSelect(){
   showOnly('characters');
   renderRoster();
   ensurePreview();
+  const prof=selectedProfile();preview?.setDiscipline(prof?.discipline||'knight');preview?.setFrog(prof?.appearance||{frog:'tree',head:110,build:100,color:FROGS.tree.color});
   if(soundEnabled && audioUnlocked) startTitleMusic();
 }
 function beginSession(mode){ authMode = mode; openCharacterSelect(); }
@@ -427,7 +461,7 @@ function renderRoster(){
   if(profile){
     const p=progressFor(profile), d=DISCIPLINES[profile.discipline]||DISCIPLINES.knight;
     q('#selectedCharacterName').textContent=profile.name;
-    q('#selectedCharacterPath').textContent=`Level ${p.level} ${d.label} · ${d.blurb}`;
+    q('#selectedCharacterPath').textContent=`Level ${p.level} ${FROGS[profile.appearance?.frog]?.label||'Tree Frog'} ${d.label} · ${d.blurb}`;
     q('#selectedCharacterStats').innerHTML=`<span>Fiber <b>${p.vitality}</b></span><span>Pressure <b>${p.might}</b></span><span>Brown <b>${p.arcana}</b></span><span>Gut <b>${p.endurance}</b></span>`;
   } else {
     q('#selectedCharacterName').textContent='No Wanderer Selected';
@@ -435,11 +469,17 @@ function renderRoster(){
     q('#selectedCharacterStats').innerHTML='';
   }
   preview?.setDiscipline(profile?.discipline || 'knight');
+  preview?.setFrog(profile?.appearance || {frog:'tree',head:110,build:100,color:FROGS.tree.color});
 }
 
 function openCreator(){
   if(characters.length>=MAX_CHARACTERS) return;
   selectedDiscipline='knight';
+  selectedFrog='tree';
+  q('#frogHead').value=110;q('#frogBuild').value=100;q('#frogColor').value=FROGS.tree.color;
+  q('#frogHeadOut').textContent='110%';q('#frogBuildOut').textContent='100%';
+  document.querySelectorAll('[data-frog]').forEach(b=>b.classList.toggle('active',b.dataset.frog==='tree'));
+  preview?.setFrog(currentCreatorAppearance());preview?.setDiscipline('knight');
   q('#newCharacterModal').hidden=false;
   q('#newCharacterName').value='';
   document.querySelectorAll('[data-discipline]').forEach(b=>b.classList.toggle('active', b.dataset.discipline==='knight'));
@@ -453,18 +493,22 @@ document.querySelectorAll('[data-discipline]').forEach(b=>b.addEventListener('cl
   document.querySelectorAll('[data-discipline]').forEach(x=>x.classList.toggle('active',x===b));
   preview?.setDiscipline(selectedDiscipline);
 }));
+function currentCreatorAppearance(){return {frog:selectedFrog,head:Number(q('#frogHead').value),build:Number(q('#frogBuild').value),color:q('#frogColor').value};}
+document.querySelectorAll('[data-frog]').forEach(b=>b.addEventListener('click',()=>{selectedFrog=b.dataset.frog;document.querySelectorAll('[data-frog]').forEach(x=>x.classList.toggle('active',x===b));q('#frogColor').value=FROGS[selectedFrog].color;preview?.setFrog(currentCreatorAppearance());}));
+['frogHead','frogBuild','frogColor'].forEach(id=>q('#'+id).addEventListener('input',()=>{q('#frogHeadOut').textContent=q('#frogHead').value+'%';q('#frogBuildOut').textContent=q('#frogBuild').value+'%';preview?.setFrog(currentCreatorAppearance());}));
 q('#newCharacterForm').addEventListener('submit',e=>{
   e.preventDefault();
   const name=q('#newCharacterName').value.trim(); if(!name) return;
   const id=`char-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-  const profile={id,name,discipline:selectedDiscipline,createdAt:Date.now()};
+  const profile={id,name,discipline:selectedDiscipline,appearance:{frog:selectedFrog,head:Number(q('#frogHead').value),build:Number(q('#frogBuild').value),color:q('#frogColor').value},createdAt:Date.now()};
+  saveGear(profile,getGear(profile));
   characters.push(profile); persistCharacters(); selectedCharacterId=id;
   closeCreator(); renderRoster();
 });
 q('#deleteCharacterBtn').addEventListener('click',()=>{
   const p=selectedProfile(); if(!p) return;
   if(!confirm(`Delete ${p.name}? This removes this character's local progression.`)) return;
-  characters=characters.filter(c=>c.id!==p.id); persistCharacters(); localStorage.removeItem(saveKeyFor(p.id));
+  characters=characters.filter(c=>c.id!==p.id); persistCharacters(); localStorage.removeItem(saveKeyFor(p.id)); localStorage.removeItem(gearKeyFor(p.id));
   selectedCharacterId=characters[0]?.id||null; renderRoster();
 });
 q('#enterRealmBtn').addEventListener('click',()=>{ const p=selectedProfile(); if(p) startGame(p); });
@@ -479,6 +523,7 @@ function startGame(profile){
   world=document.createElement('world-3d');
   world.id='world';
   world.characterProfile={...profile, ...(DISCIPLINES[profile.discipline]||DISCIPLINES.knight)};
+  world.characterGear=getGear(profile);
   hideGuardianVictory();
   world.addEventListener('guardian-slay',e=>showGuardianVictory(e.detail));
   world.addEventListener('worldstate', e=>{ state=e.detail; renderHud(state); syncRealmMusic(state); });
@@ -560,8 +605,15 @@ function renderMenu(){
       <div class="menu-row"><div><span>Attunement</span><small>Next growth at A’jol Brownwell</small></div><strong>${label[state.growthFocus]}</strong></div>
     </div><div class="growth-buttons">${['vitality','might','arcana','endurance'].map(k=>`<button data-growth="${k}" class="${state.growthFocus===k?'active':''}">${label[k]}</button>`).join('')}</div>`;
     panel.querySelectorAll('[data-growth]').forEach(b=>b.addEventListener('click',()=>world?.act?.(`growthset:${b.dataset.growth}`)));
-  } else if(currentTab==='inventory') panel.innerHTML=`<h2>Inventory</h2><div class="sub">Carried possessions</div><div class="menu-grid"><div class="menu-row"><span>Brown Flask</span><strong>${state.flasks}</strong></div>${[['fords','Fragment of Return'],['steppe','Fragment of Pressure'],['ember','Fragment of Release']].map(([id,name])=>`<div class="menu-row"><span>${name}</span><strong>${state.pootalKeys?.[id]?'Recovered':'—'}</strong></div>`).join('')}</div>`;
-  else if(currentTab==='equipment') panel.innerHTML='<h2>Equipment</h2><div class="sub">Worn and wielded</div><div class="menu-grid"><div class="menu-row"><span>Right Hand</span><strong>Rustbound Blade</strong></div><div class="menu-row"><span>Left Hand</span><strong>Wooden Guard</strong></div><div class="menu-row"><span>Body</span><strong>Bogmail</strong></div><div class="menu-row"><span>Charm</span><strong>None</strong></div></div>';
+  } else if(currentTab==='inventory') {
+    const profile=selectedProfile(),g=getGear(profile);
+    panel.innerHTML=`<h2>Inventory</h2><div class="sub">Items carried but not equipped</div><div class="menu-grid">${(g?.inventory||[]).map((id,i)=>GEAR[id]?`<div class="menu-row"><div><span>${esc(GEAR[id].name)}</span><small>${esc(GEAR[id].stat)} · ${esc(GEAR_SLOTS[GEAR[id].slot])}</small></div><button class="equip-item-action" data-equip-idx="${i}">Equip</button></div>`:'').join('')||'<div class="menu-row">Your bag is empty. Explore for equipment.</div>'}<div class="menu-row"><span>Brown Flask</span><strong>${state.flasks}</strong></div>${[['fords','Fragment of Return'],['steppe','Fragment of Pressure'],['ember','Fragment of Release']].map(([id,name])=>`<div class="menu-row"><span>${name}</span><strong>${state.pootalKeys?.[id]?'Recovered':'—'}</strong></div>`).join('')}</div>`;
+    panel.querySelectorAll('[data-equip-idx]').forEach(btn=>btn.onclick=()=>transferGear(profile,g.inventory[Number(btn.dataset.equipIdx)],'inventory'));
+  } else if(currentTab==='equipment') {
+    const profile=selectedProfile(),g=getGear(profile),bonus=gearBonuses(profile);
+    panel.innerHTML=`<h2>Equipment</h2><div class="sub">Worn and wielded · class starter gear</div><div class="equipment-statline">Gear bonuses: Fiber +${bonus.vitality} · Pressure +${bonus.might} · Brown +${bonus.arcana} · Gut +${bonus.endurance}</div><div class="menu-grid">${Object.entries(GEAR_SLOTS).map(([slot,label])=>{const id=g?.equipped?.[slot],item=GEAR[id];return `<div class="menu-row"><div><span>${label}</span><small>${item?esc(item.name)+' · '+esc(item.stat):'Empty'}</small></div>${item?`<button class="equip-item-action" data-unequip="${slot}">Unequip</button>`:''}</div>`}).join('')}</div>`;
+    panel.querySelectorAll('[data-unequip]').forEach(btn=>btn.onclick=()=>transferGear(profile,g.equipped[btn.dataset.unequip],'equipment'));
+  }
   else {
     panel.innerHTML=`<h2>Settings</h2><div class="sub">System and controls</div>
       <div class="setting-line"><div><strong>Control Layout</strong><small>Desktop keeps the screen clean; Mobile restores the movement wheel.</small></div><select id="layoutSelect"><option value="desktop">Desktop</option><option value="mobile">Mobile</option></select></div>
@@ -596,14 +648,8 @@ function ensurePreview(){
   scene.add(new THREE.HemisphereLight(0xa8b0a0,0x1b1712,1.15)); const key=new THREE.DirectionalLight(0xffd7a0,2.3); key.position.set(-4,7,5); scene.add(key); const rim=new THREE.DirectionalLight(0x6ca9c3,1.1); rim.position.set(5,4,-4); scene.add(rim);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(2.35,48),new THREE.MeshStandardMaterial({color:0x15130f,roughness:1})); floor.rotation.x=-Math.PI/2; floor.position.y=-.7; scene.add(floor);
   let model=buildPreviewFrog(); scene.add(model);
-  createMeshyFrogKnightRig({ ringColor: 0xc9a15a, preview: true }).then(imported=>{
-    imported.scale.setScalar(1.12);
-    imported.position.y=-.70;
-    imported.rotation.y=-0.12;
-    scene.remove(model);
-    model=imported;
-    scene.add(model);
-  }).catch(err=>console.warn('Character preview is using procedural fallback.',err));
+  // Procedural preview supports six interchangeable frog silhouettes without requiring new GLBs.
+  // The in-world character continues using the existing rig until body morph assets are authored.
   let dragging=false,lastX=0,velocity=.002;
   renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;renderer.domElement.setPointerCapture(e.pointerId)}); renderer.domElement.addEventListener('pointermove',e=>{if(!dragging)return; const dx=e.clientX-lastX;lastX=e.clientX;model.rotation.y+=dx*.01;velocity=dx*.001}); renderer.domElement.addEventListener('pointerup',()=>dragging=false);
   function resize(){const r=host.getBoundingClientRect(); if(!r.width||!r.height)return; renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}
@@ -619,7 +665,17 @@ function ensurePreview(){
     updateFrogRigSecondary(model,.016,{move:0,action:(cycle>5.65&&cycle<6.45)?1:0,time:t});
     renderer.render(scene,camera);
   } loop();
-  preview={resize,setDiscipline(k){ const d=DISCIPLINES[k]||DISCIPLINES.knight; model.userData.aura.material.color.setHex(k==='caster'?0x6aaad3:k==='brute'?0x95513b:k==='rogue'?0x6e8557:0xc9a15a); model.userData.aura.material.opacity=k==='knight'?.18:.28; const base=model.userData.customization?.overallScale||1; model.scale.setScalar(base*(k==='brute'?1.08:k==='rogue'?.96:1)); }};
+  function applyFrog(cfg){
+    const f=FROGS[cfg?.frog]||FROGS.tree;
+    const head=(Number(cfg?.head)||110)/110,build=(Number(cfg?.build)||100)/100;
+    const base=model.userData.customization?.overallScale||1;
+    model.scale.set(base*1.12*f.scale*f.wide*build,base*1.12*f.scale*(.93+.07*head),base*1.12*f.scale*build);
+    const materials=model.userData.materials;
+    if(materials?.frog?.color)materials.frog.color.set(cfg?.color||f.color);
+    if(materials?.belly?.color)materials.belly.color.set(cfg?.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);
+  }
+  preview={resize,setDiscipline(k){const aura=model.userData.aura;if(aura?.material?.color){aura.material.color.setHex(k==='caster'?0x6aaad3:k==='shaman'?0x8ab879:k==='rogue'?0x6e8557:0xc9a15a);aura.material.opacity=k==='knight'?.18:.28;}},setFrog:applyFrog};
+  applyFrog({frog:'tree',head:110,build:100,color:FROGS.tree.color});
 }
 function buildPreviewFrog(){
   const g = createFrogKnightRig({ ringColor: 0xc9a15a, preview: true });
