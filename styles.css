@@ -67,3 +67,34 @@
 
 /* Alpha 2.6.0 Character Forge */
 .frog-type-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:9px 0 15px}.frog-type-grid button{background:#141714;border:1px solid #514936;color:#d9d1c2;padding:10px 7px;cursor:pointer;display:flex;align-items:center;flex-direction:column;gap:4px;font-size:18px}.frog-type-grid button.active{border-color:#c9a15a;background:#292619}.frog-type-grid strong{font:10px 'Cinzel',serif}.frog-type-grid small{font-size:11px;color:#948979}.frog-appearance-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:13px;margin:10px 0 18px;color:#c8bda6}.frog-appearance-controls label{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:12px}.frog-appearance-controls input[type=range]{width:100%;accent-color:#c9a15a}.frog-appearance-controls output{font-size:10px;color:#948979}.frog-appearance-controls input[type=color]{width:44px;height:29px;border:0;background:transparent}.creator-card{max-height:min(90vh,920px);overflow-y:auto}.equip-item-action{margin-left:8px;border:1px solid #8a754c;background:#242119;color:#efdbb6;padding:7px;cursor:pointer}.equip-item-action:disabled{opacity:.4;cursor:not-allowed}.equipment-statline{color:#aa9d83;margin:9px 0 18px;font-size:13px}.menu-row .equip-item-action{min-width:74px}@media(max-width:550px){.frog-type-grid{grid-template-columns:repeat(2,1fr)}.frog-appearance-controls{grid-template-columns:1fr 1fr}}
+
+/* Alpha 2.6.1: Character creation preview and unified equipment + inventory */
+.bag-window{width:min(1160px,calc(100vw - 30px));max-height:min(92vh,930px);overflow:auto}
+.bag-two-panel{display:grid;grid-template-columns:minmax(365px,1.12fr) minmax(305px,1fr);gap:18px;align-items:stretch}
+.equipment-pane,.inventory-pane{min-width:0;background:#10100ec9;border:1px solid #8d754844;padding:14px}
+.equipment-caption,.inventory-caption{font:11px 'Cinzel',serif;color:#d8bd83;letter-spacing:.13em;border-bottom:1px solid #8d754844;padding-bottom:11px;margin-bottom:12px}
+.inventory-caption{display:flex;justify-content:space-between;gap:10px}.inventory-caption small{font:9px 'Cinzel',serif;color:#968567}
+.equipment-stage{display:grid;grid-template-columns:minmax(96px,1fr) minmax(145px,2fr) minmax(96px,1fr);align-items:center;gap:6px;min-height:360px}
+.equipment-character-viewer{height:360px;min-width:0;overflow:hidden;touch-action:pan-y;cursor:grab}
+.equipment-character-viewer canvas{width:100%;height:100%;display:block}
+.equipment-slots{display:flex;flex-direction:column;gap:13px}
+.equipment-slot{min-height:81px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;width:100%;border:1px solid #8a754c73;background:linear-gradient(#2a251c,#171610);color:#edd6a9;cursor:pointer;padding:6px;text-align:center}
+.equipment-slot:hover:not(:disabled),.equipment-slot:focus-visible{border-color:#e3bc74;background:#373022}
+.equipment-slot:disabled{cursor:default;opacity:.65}
+.equipment-slot .slot-icon{font-size:24px;line-height:1}.equipment-slot .slot-name{font:9px 'Cinzel',serif;letter-spacing:.05em}.equipment-slot .slot-item{font:12px 'EB Garamond',serif;color:#bdae8d;line-height:1.15}
+.equipment-weapons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:320px;margin:8px auto 0}
+.equipment-weapons .equipment-slot{min-height:88px}
+.equipment-pane .equipment-statline{font-size:12px;margin:16px 0 0;text-align:center}
+.inventory-pane .bag-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+.inventory-pane footer{line-height:1.5}
+.creator-shell{display:grid;grid-template-columns:minmax(235px,0.95fr) minmax(380px,1.25fr);gap:15px;width:min(1120px,calc(100vw - 30px));max-height:94vh}
+.creator-shell .creator-card{width:100%;max-height:94vh;overflow:auto}
+.creator-live{border:1px solid #a7865066;background:linear-gradient(150deg,#131b17,#0b0b0b);position:relative;min-height:440px;display:flex;flex-direction:column;padding:15px;overflow:hidden}
+.creator-live-heading{font:11px 'Cinzel',serif;letter-spacing:.12em;color:#d9bb82;display:flex;justify-content:space-between;gap:8px}
+.creator-live-heading small{font:8px 'Cinzel',serif;color:#98866d}
+#creatorPreviewMount{flex:1;min-height:320px;position:relative}
+#creatorPreviewMount #characterPreview{position:absolute;inset:0;width:100%;height:100%}
+.creator-live p{color:#a99c82;font:13px 'EB Garamond',serif;text-align:center;margin:5px}
+.creator-live #creatorPreviewLabel{font:13px 'Cinzel',serif;color:#e2ca99}
+@media(max-width:860px){.bag-two-panel{grid-template-columns:1fr}.equipment-stage{min-height:275px}.equipment-character-viewer{height:290px}.creator-shell{grid-template-columns:1fr;overflow-y:auto}.creator-live{min-height:320px}.creator-card{max-height:none!important}.character-modal{overflow-y:auto;place-items:start center}.inventory-pane .bag-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:440px){.equipment-stage{grid-template-columns:minmax(75px,1fr) minmax(95px,1.5fr) minmax(75px,1fr)}.equipment-slot{min-height:72px}.equipment-slot .slot-item{font-size:11px}.inventory-pane .bag-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}

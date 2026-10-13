@@ -20,7 +20,42 @@ function carriedItems(s){
 }
 function hideBagTooltip(){bagTooltip.hidden=true;}
 function positionBagTooltip(e){const x=Math.min(e.clientX+18,innerWidth-bagTooltip.offsetWidth-12),y=Math.min(e.clientY+18,innerHeight-bagTooltip.offsetHeight-12);bagTooltip.style.left=Math.max(8,x)+'px';bagTooltip.style.top=Math.max(8,y)+'px';}
-function renderBag(){if(bag.hidden||!state)return;const items=carriedItems(state),signature=JSON.stringify(items);if(signature===bagSignature)return;bagSignature=signature;bagGrid.innerHTML=Array.from({length:30},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" aria-label="${esc(items[i].name)}"><span>${items[i].icon||'◈'}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:''}</button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');bagGrid.querySelectorAll('[data-slot]').forEach(slot=>{const item=items[Number(slot.dataset.slot)];const show=e=>{bagTooltip.innerHTML=`<strong>${esc(item.name)}</strong><small>${esc(item.type)}</small><p>${esc(item.details)}</p><i>${esc(item.flavor)}</i>`;bagTooltip.hidden=false;const r=slot.getBoundingClientRect();positionBagTooltip(e.clientX===undefined?{clientX:r.right,clientY:r.top}:e)};slot.addEventListener('pointerenter',show);slot.addEventListener('pointermove',positionBagTooltip);slot.addEventListener('pointerleave',hideBagTooltip);slot.addEventListener('focus',show);slot.addEventListener('blur',hideBagTooltip);if(item.id)slot.addEventListener('click',()=>transferGear(selectedProfile(),item.id,'inventory'));});}
+const SLOT_ICON={head:'♜',chest:'▥',legs:'▤',hands:'✥',feet:'♧',accessory:'✦',mainHand:'⚔',offhand:'⬟'};
+let equipmentViewer=null;
+function createEquipmentViewer(){
+  if(equipmentViewer)return equipmentViewer;
+  const host=q('#equipmentCharacterViewer');
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(35,1,.1,50);
+  camera.position.set(0,1.8,7.6);camera.lookAt(0,1.25,0);
+  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0x000000,0);host.appendChild(renderer.domElement);
+  scene.add(new THREE.HemisphereLight(0xb6c5a4,0x1b1a14,1.5));const lamp=new THREE.DirectionalLight(0xffd7a3,2.5);lamp.position.set(-3,6,5);scene.add(lamp);
+  const model=buildPreviewFrog();scene.add(model);
+  let drag=false,last=0,spin=0.003;
+  renderer.domElement.addEventListener('pointerdown',e=>{drag=true;last=e.clientX;renderer.domElement.setPointerCapture(e.pointerId)});
+  renderer.domElement.addEventListener('pointermove',e=>{if(drag){const dx=e.clientX-last;last=e.clientX;model.rotation.y+=dx*.012;spin=dx*.001;}});
+  renderer.domElement.addEventListener('pointerup',()=>drag=false);
+  renderer.domElement.addEventListener('pointercancel',()=>drag=false);
+  function resize(){const r=host.getBoundingClientRect();if(r.width&&r.height){renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}}
+  new ResizeObserver(resize).observe(host);
+  let time=0;function loop(){requestAnimationFrame(loop);if(!bag.hidden){time+=.016;if(!drag)model.rotation.y+=spin;resetFrogRigPose(model);poseFrogRigIdle(model,time,1,false);updateFrogRigSecondary(model,.016,{move:0,action:0,time});renderer.render(scene,camera);}}loop();
+  equipmentViewer={sync(profile){const f=FROGS[profile?.appearance?.frog]||FROGS.tree;const a=profile?.appearance||{};const base=model.userData.customization?.overallScale||1;model.scale.set(base*1.12*f.scale*f.wide*(Number(a.build||100)/100),base*1.12*f.scale*(.93+.07*(Number(a.head||110)/110)),base*1.12*f.scale*(Number(a.build||100)/100));if(model.userData.materials?.frog?.color)model.userData.materials.frog.color.set(a.color||f.color);if(model.userData.materials?.belly?.color)model.userData.materials.belly.color.set(a.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);applyPreviewStarterVisuals(model,profile?.discipline||'knight');resize();}};
+  return equipmentViewer;
+}
+function renderBag(){
+  if(bag.hidden||!state)return;
+  const profile=selectedProfile(),gear=getGear(profile),items=carriedItems(state);
+  const signature=JSON.stringify({items,gear,profile:profile?.id});if(signature===bagSignature)return;bagSignature=signature;
+  q('#equipmentCharacterLabel').textContent=`${profile?.name||'Wanderer'} · ${DISCIPLINES[profile?.discipline]?.label||'Knight'} · ${FROGS[profile?.appearance?.frog]?.label||'Tree Frog'}`;
+  const slotMarkup=slot=>{const itemId=gear?.equipped?.[slot],item=GEAR[itemId];return `<button class="equipment-slot" data-unequip-slot="${slot}" ${item?'':'disabled'} title="${item?'Unequip '+esc(item.name):'Empty '+GEAR_SLOTS[slot]}"><span class="slot-icon">${item?.icon||SLOT_ICON[slot]}</span><span class="slot-name">${GEAR_SLOTS[slot]}</span><span class="slot-item">${item?esc(item.name):'Empty'}</span></button>`};
+  q('#equipmentSlotsLeft').innerHTML=['head','chest','legs'].map(slotMarkup).join('');
+  q('#equipmentSlotsRight').innerHTML=['hands','feet','accessory'].map(slotMarkup).join('');
+  q('#equipmentWeapons').innerHTML=['mainHand','offhand'].map(slotMarkup).join('');
+  bag.querySelectorAll('[data-unequip-slot]').forEach(btn=>btn.addEventListener('click',()=>{const slot=btn.dataset.unequipSlot,id=getGear(selectedProfile())?.equipped?.[slot];if(id)transferGear(selectedProfile(),id,'equipment');}));
+  const bonus=gearBonuses(profile);q('#equipmentBonusLine').textContent=`GEAR BONUS · Fiber +${bonus.vitality} · Pressure +${bonus.might} · Brown +${bonus.arcana} · Gut +${bonus.endurance}`;
+  bagGrid.innerHTML=Array.from({length:30},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" aria-label="${esc(items[i].name)}"><span>${items[i].icon||'◈'}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:''}</button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');
+  bagGrid.querySelectorAll('[data-slot]').forEach(slot=>{const item=items[Number(slot.dataset.slot)];const show=e=>{bagTooltip.innerHTML=`<strong>${esc(item.name)}</strong><small>${esc(item.type)}</small><p>${esc(item.details)}</p><i>${esc(item.flavor)}</i>`;bagTooltip.hidden=false;const r=slot.getBoundingClientRect();positionBagTooltip(e.clientX===undefined?{clientX:r.right,clientY:r.top}:e)};slot.addEventListener('pointerenter',show);slot.addEventListener('pointermove',positionBagTooltip);slot.addEventListener('pointerleave',hideBagTooltip);slot.addEventListener('focus',show);slot.addEventListener('blur',hideBagTooltip);if(item.id)slot.addEventListener('click',()=>{hideBagTooltip();transferGear(selectedProfile(),item.id,'inventory')});});
+  createEquipmentViewer().sync(profile);
+}
 function openBag(){if(!world||game.hidden||state?.loading||state?.mode==='dead'||state?.pootalDialog)return;if(!menu.hidden)closeMenu();bag.hidden=false;world.setPaused?.(true);bagSignature='';renderBag();q('#bagClose').focus();}
 function closeBag(){if(bag.hidden)return;bag.hidden=true;hideBagTooltip();world?.setPaused?.(false);}
 q('#bagClose').addEventListener('click',closeBag);
@@ -481,21 +516,24 @@ function openCreator(){
   document.querySelectorAll('[data-frog]').forEach(b=>b.classList.toggle('active',b.dataset.frog==='tree'));
   preview?.setFrog(currentCreatorAppearance());preview?.setDiscipline('knight');
   q('#newCharacterModal').hidden=false;
+  q('#creatorPreviewMount').appendChild(q('#characterPreview'));
+  preview?.resize();updateCreatorPreviewLabel();
   q('#newCharacterName').value='';
   document.querySelectorAll('[data-discipline]').forEach(b=>b.classList.toggle('active', b.dataset.discipline==='knight'));
   setTimeout(()=>q('#newCharacterName').focus(),50);
 }
-function closeCreator(){ q('#newCharacterModal').hidden=true; }
+function closeCreator(){ q('#newCharacterModal').hidden=true; q('.character-stage').prepend(q('#characterPreview')); preview?.resize(); renderRoster(); }
+function updateCreatorPreviewLabel(){q('#creatorPreviewLabel').textContent=`${FROGS[selectedFrog]?.label||'Tree Frog'} · ${DISCIPLINES[selectedDiscipline]?.label||'Knight'}`;}
 q('#newCharacterBtn').addEventListener('click',openCreator);
 q('#closeCreatorBtn').addEventListener('click',closeCreator);
 document.querySelectorAll('[data-discipline]').forEach(b=>b.addEventListener('click',()=>{
   selectedDiscipline=b.dataset.discipline;
   document.querySelectorAll('[data-discipline]').forEach(x=>x.classList.toggle('active',x===b));
-  preview?.setDiscipline(selectedDiscipline);
+  preview?.setDiscipline(selectedDiscipline);updateCreatorPreviewLabel();
 }));
 function currentCreatorAppearance(){return {frog:selectedFrog,head:Number(q('#frogHead').value),build:Number(q('#frogBuild').value),color:q('#frogColor').value};}
-document.querySelectorAll('[data-frog]').forEach(b=>b.addEventListener('click',()=>{selectedFrog=b.dataset.frog;document.querySelectorAll('[data-frog]').forEach(x=>x.classList.toggle('active',x===b));q('#frogColor').value=FROGS[selectedFrog].color;preview?.setFrog(currentCreatorAppearance());}));
-['frogHead','frogBuild','frogColor'].forEach(id=>q('#'+id).addEventListener('input',()=>{q('#frogHeadOut').textContent=q('#frogHead').value+'%';q('#frogBuildOut').textContent=q('#frogBuild').value+'%';preview?.setFrog(currentCreatorAppearance());}));
+document.querySelectorAll('[data-frog]').forEach(b=>b.addEventListener('click',()=>{selectedFrog=b.dataset.frog;document.querySelectorAll('[data-frog]').forEach(x=>x.classList.toggle('active',x===b));q('#frogColor').value=FROGS[selectedFrog].color;preview?.setFrog(currentCreatorAppearance());updateCreatorPreviewLabel();}));
+['frogHead','frogBuild','frogColor'].forEach(id=>q('#'+id).addEventListener('input',()=>{q('#frogHeadOut').textContent=q('#frogHead').value+'%';q('#frogBuildOut').textContent=q('#frogBuild').value+'%';preview?.setFrog(currentCreatorAppearance());updateCreatorPreviewLabel();}));
 q('#newCharacterForm').addEventListener('submit',e=>{
   e.preventDefault();
   const name=q('#newCharacterName').value.trim(); if(!name) return;
@@ -590,7 +628,7 @@ deathQuitBtn.addEventListener('click',()=>{
 function openMenu(){ if(!world||state?.pootalDialog||state?.loading)return; closeBag();menu.hidden=false; world.setPaused?.(true); renderMenu(); }
 function closeMenu(){ menu.hidden=true; world?.setPaused?.(false); }
 q('#menuBtn').addEventListener('click',openMenu); q('#resumeBtn').addEventListener('click',closeMenu);
-document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.tab==='inventory'){openBag();return;} currentTab=b.dataset.tab; document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b)); renderMenu(); }));
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.tab==='inventory'||b.dataset.tab==='equipment'){openBag();return;} currentTab=b.dataset.tab; document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b)); renderMenu(); }));
 function renderMenu(){
   if(!state){ panel.innerHTML='<h2>Loading</h2><div class="sub">The Brown is gathering…</div>'; return; }
   const label={vitality:'Fiber',might:'Pressure',arcana:'Brown',endurance:'Gut'};
@@ -639,6 +677,16 @@ pad.addEventListener('pointerdown',e=>{pid=e.pointerId;pad.setPointerCapture(pid
 addEventListener('resize',applyLayout);
 addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(e.key.toLowerCase()==='b'&&!game.hidden){e.preventDefault();bag.hidden?openBag():closeBag();return;}if(e.key==='Escape'&&!bag.hidden){e.preventDefault();closeBag();return;} if(e.key==='Escape'&&state?.pootalDialog){e.preventDefault();world?.act('pootal-close');return;} if(e.key==='Escape'&&!q('#newCharacterModal').hidden){closeCreator();return;} if(e.key==='Escape'&&!game.hidden){menu.hidden?openMenu():closeMenu();} });
 
+function applyPreviewStarterVisuals(model,discipline){
+  // Temporary, class-specific visual identifiers. Replace with rig-bound class armor GLBs later.
+  const old=model.getObjectByName('placeholderClassGear');if(old){model.remove(old);old.traverse(o=>{o.geometry?.dispose?.();if(o.material?.dispose)o.material.dispose();});}
+  const group=new THREE.Group();group.name='placeholderClassGear';
+  const hues={knight:0xa79a7c,caster:0x715b8e,rogue:0x536751,shaman:0x807250};
+  const mat=new THREE.MeshStandardMaterial({color:hues[discipline]||hues.knight,roughness:.9,metalness:discipline==='knight'?.3:0});
+  const geometry=new THREE.TorusGeometry(.26,.047,8,20);const ring=new THREE.Mesh(geometry,mat);ring.rotation.x=Math.PI/2;ring.position.set(0,.16,0);group.add(ring);
+  const gem=new THREE.Mesh(new THREE.OctahedronGeometry(.10),new THREE.MeshStandardMaterial({color:discipline==='caster'?0xb286ec:discipline==='shaman'?0x9ac97c:discipline==='rogue'?0x819e6b:0xc4b286,emissive:discipline==='caster'?0x302044:0x12100a}));gem.position.set(0,.16,.3);group.add(gem);
+  model.add(group);
+}
 function ensurePreview(){
   if(preview) { preview.resize(); return; }
   const host=q('#characterPreview');
@@ -674,7 +722,7 @@ function ensurePreview(){
     if(materials?.frog?.color)materials.frog.color.set(cfg?.color||f.color);
     if(materials?.belly?.color)materials.belly.color.set(cfg?.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);
   }
-  preview={resize,setDiscipline(k){const aura=model.userData.aura;if(aura?.material?.color){aura.material.color.setHex(k==='caster'?0x6aaad3:k==='shaman'?0x8ab879:k==='rogue'?0x6e8557:0xc9a15a);aura.material.opacity=k==='knight'?.18:.28;}},setFrog:applyFrog};
+  preview={resize,setDiscipline(k){const aura=model.userData.aura;if(aura?.material?.color){aura.material.color.setHex(k==='caster'?0x6aaad3:k==='shaman'?0x8ab879:k==='rogue'?0x6e8557:0xc9a15a);aura.material.opacity=k==='knight'?.18:.28;}applyPreviewStarterVisuals(model,k);},setFrog:applyFrog};
   applyFrog({frog:'tree',head:110,build:100,color:FROGS.tree.color});
 }
 function buildPreviewFrog(){

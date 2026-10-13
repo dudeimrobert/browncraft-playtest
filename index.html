@@ -51,7 +51,7 @@
         </div>
       </div>
       <div class="original-login-footer">
-        <span>Alpha 2.6.0 · REALM WORKSHOP</span>
+        <span>Alpha 2.6.1 · CHARACTER & EQUIPMENT</span>
         <button id="soundBtn" type="button">Sound · On</button>
       </div>
     </section>
@@ -88,7 +88,7 @@
       </div>
 
       <div id="newCharacterModal" class="character-modal" hidden>
-        <form id="newCharacterForm" class="creator-card">
+        <div class="creator-shell"><div class="creator-live"><div class="creator-live-heading">YOUR WANDERER <small>DRAG TO ROTATE</small></div><div id="creatorPreviewMount"></div><p id="creatorPreviewLabel">Tree Frog · Knight</p><p>Prototype species silhouettes and class starter gear</p></div><form id="newCharacterForm" class="creator-card">
           <div class="creator-title"><span>Create Wanderer</span><button id="closeCreatorBtn" type="button">×</button></div>
           <label class="creator-name"><span>Name</span><input id="newCharacterName" maxlength="18" autocomplete="off" placeholder="Name your wanderer" required /></label>
           <div class="creator-label">Frog Archetype <small>— placeholders, all classes available</small></div>
@@ -115,7 +115,7 @@
           </div>
           <p class="creator-note">Your frog determines appearance, not stats. Each class begins with modest starter gear; future talents may branch into other playstyles.</p>
           <button class="creator-submit" type="submit">Create Character</button>
-        </form>
+        </form></div>
       </div>
     </section>
 
@@ -204,22 +204,36 @@
         <nav>
           <button class="tab active" data-tab="character">Character</button>
           <button class="tab" data-tab="inventory">Inventory</button>
-          <button class="tab" data-tab="equipment">Equipment</button>
           <button class="tab" data-tab="settings">Settings</button>
           <button id="resumeBtn" class="resume">Resume</button>
         </nav>
         <section id="menuPanel" class="menu-panel"></section>
       </aside>
       <aside id="bag" class="bag-window" role="dialog" aria-modal="true" aria-label="Inventory" hidden>
-        <header><div><small>THE WANDERER'S POSSESSIONS</small><h2>Inventory</h2></div><button id="bagClose" aria-label="Close inventory">×</button></header>
-        <div id="bagGrid" class="bag-grid"></div>
-        <footer>Hover or focus an item to inspect it · B to close</footer>
+        <header><div><small>THE WANDERER'S POSSESSIONS</small><h2>Equipment & Inventory</h2></div><button id="bagClose" aria-label="Close inventory">×</button></header>
+        <div class="bag-two-panel">
+          <section class="equipment-pane" aria-label="Equipped items">
+            <div class="equipment-caption" id="equipmentCharacterLabel">Wanderer's equipment</div>
+            <div class="equipment-stage">
+              <div class="equipment-slots equipment-slots-left" id="equipmentSlotsLeft"></div>
+              <div id="equipmentCharacterViewer" class="equipment-character-viewer" aria-label="Character 3D preview"></div>
+              <div class="equipment-slots equipment-slots-right" id="equipmentSlotsRight"></div>
+            </div>
+            <div class="equipment-weapons" id="equipmentWeapons"></div>
+            <div class="equipment-statline" id="equipmentBonusLine"></div>
+          </section>
+          <section class="inventory-pane" aria-label="Bag inventory">
+            <div class="inventory-caption">IN YOUR BAG <small>SELECT GEAR TO EQUIP</small></div>
+            <div id="bagGrid" class="bag-grid"></div>
+            <footer>Click gear to equip · Click occupied slots to unequip · B to close</footer>
+          </section>
+        </div>
       </aside>
       <div id="bagTooltip" class="bag-tooltip" role="tooltip" hidden></div>
     </section>
   </main>
 
-  <script type="module" src="./assets/world3d.js?v=2.5.8"></script>
-  <script type="module" src="./app.js?v=2.5.8"></script>
+  <script type="module" src="./assets/world3d.js?v=2.6.1"></script>
+  <script type="module" src="./app.js?v=2.6.1"></script>
 <a href="level-editor.html" style="position:fixed;right:16px;bottom:14px;z-index:90;color:#dcc598;background:#18251de6;padding:7px 12px;border:1px solid #63725a;border-radius:5px;font:12px system-ui;text-decoration:none">Realm Workshop ↗</a></body>
 </html>
