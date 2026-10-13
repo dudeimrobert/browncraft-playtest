@@ -155,6 +155,7 @@ const REALM_TRACK_PATHS = {
   fords: './assets/music/weeping-fjarts.mp3',
   steppe: './assets/music/assfall-steppe.mp3',
   ember: './assets/music/emberpood.mp3',
+  stillwater: './assets/music/ol-mudds-melody.mp3',
   boss1: './assets/music/boss-battle-1.mp3',
   boss2: './assets/music/boss-battle-2.mp3'
 };
