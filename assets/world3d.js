@@ -1,10 +1,11 @@
+import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.2';
 import { captureLevel, applyProject, loadProject } from './level-project.js';
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.5.6';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.2';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.5.2';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.5.2';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.2';
+import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.6.2';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -1448,7 +1449,8 @@ class World3D extends HTMLElement {
 
   async buildFrogKnight(ringColor){
     try {
-      const rig = await createMeshyFrogKnightRig({ ringColor });
+      const rig = await createSwampFrogRig({ ringColor });
+      rig.userData.syncGear(this.characterGear);
       rig.userData.visualRoot = rig;
       return rig;
     } catch (err) {
@@ -1501,6 +1503,7 @@ class World3D extends HTMLElement {
     this.spawn = best || this.nearestWalkable(Math.round(tx), Math.round(ty)) || { x: 15, y: 26 };
     this.playerObj = await this.buildFrogKnight(0xc9a15a);
     this.playerObj.name = 'wanderer';
+    this.playerObj.userData.syncGear?.(this.characterGear);
     // Keep the Frog Knight readable without overpowering mobs or scenery.
     this.playerObj.scale.setScalar(1.15 * (this.playerObj.userData.customization?.overallScale || 1));
     this.playerObj.position.copy(this.worldPos(this.spawn.x, this.spawn.y));
@@ -2198,7 +2201,9 @@ class World3D extends HTMLElement {
 
     if ((this.hitStop || 0) > 0) { this.hitStop = Math.max(0, this.hitStop - dt); this.updateCamera(dt * 0.2); this.updatePopups(dt * 0.2); return; }
     if (this.paused) { this.updatePopups(dt); this.updateCamera(dt); return; }
+    this.playerObj?.userData.syncGear?.(this.characterGear);
     const dead = this.state.mode === 'dead';
+    if(dead && this.playerObj?.userData.nativeAnimations){this.deathPoseT=Math.min(1,(this.deathPoseT||0)+dt/1.5);this.playerObj.userData.poseNative('Death_D',this.deathPoseT);}else this.deathPoseT=0;
     if((this.slowT||0)>0){this.slowT=Math.max(0,this.slowT-dt);if(this.slowT===0){this.state.slowed=false;this.mark();}}
     if (!dead) {
       this.movePlayer(dt, time);

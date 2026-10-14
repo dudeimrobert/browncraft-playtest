@@ -1,10 +1,10 @@
 {
-  "name": "browncraft-alpha-2-6-1",
-  "version": "2.6.1",
+  "name": "browncraft-alpha-2-6-2",
+  "version": "2.6.2",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tools/verify-alpha23.mjs && node tools/verify-level-project.mjs"
+    "test": "node tools/verify-alpha23.mjs && node tools/verify-level-project.mjs && node tools/verify-swamp-frog.mjs"
   },
   "devDependencies": {
     "three": "0.184.0"

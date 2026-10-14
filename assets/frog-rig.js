@@ -673,6 +673,7 @@ function extraOffset(model,name,x=0,y=0,z=0,weight=1){
 }
 
 export function resetFrogRigPose(model){
+  if(model?.userData?.nativeAnimations)return;
   const bones=model?.userData?.bones, nr=model?.userData?.neutralRot, np=model?.userData?.neutralPos; if(!bones||!nr||!np)return;
   for(const [name,b] of Object.entries(bones)){
     const r=nr[name],p=np[name]; b.rotation.set(r[0],r[1],r[2]); b.position.set(p[0],p[1],p[2]);
@@ -683,6 +684,7 @@ export function resetFrogRigPose(model){
 }
 
 export function poseFrogRigIdle(model,time=0,amount=1,fighting=false){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative('Idle_Sword',time,true);
   const breath=Math.sin(time*1.65), slow=Math.sin(time*.72), pulse=Math.sin(time*3.3);
   bonePos(model,'rigRoot',0,breath*.010*amount,0);
   boneOffset(model,'pelvis',0,slow*.015,-slow*.009,amount);
@@ -702,6 +704,7 @@ export function poseFrogRigIdle(model,time=0,amount=1,fighting=false){
 }
 
 export function poseFrogRigWalk(model,time=0,strength=1,fighting=false){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative(strength>1?'Run_Anime':'Walk',time*strength,true);
   const speed=fighting?8.9:10.6, ph=time*speed;
   const s=Math.sin(ph), c=Math.cos(ph), leftLift=Math.max(0,-s), rightLift=Math.max(0,s);
   const stride=(fighting?.34:.48)*strength;
@@ -729,6 +732,7 @@ export function poseFrogRigWalk(model,time=0,strength=1,fighting=false){
 }
 
 export function poseFrogRigBlock(model,time=0,amount=1){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative('Spell_Simple_Idle',time,true);
   const breathe=Math.sin(time*2)*.025;
   boneAdd(model,'pelvis',-.10,0,.03,amount); boneAdd(model,'spine1',.02,-.08,0,amount); boneAdd(model,'chest',-.12,-.14,.03,amount);
   boneAdd(model,'thighL',-.18,0,.05,amount); boneAdd(model,'thighR',-.15,0,-.05,amount); boneAdd(model,'shinL',.30,0,0,amount); boneAdd(model,'shinR',.27,0,0,amount);
@@ -773,6 +777,7 @@ function applyFramePose(model,p,weight=1){
 }
 
 export function poseFrogRigAttack(model,kind='light',normalizedTime=0){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative(kind==='heavy'?'Sword_Attack_RM':'Sword_Regular_A_Rec',normalizedTime);
   const frames=kind==='heavy'?HEAVY_FRAMES:LIGHT_FRAMES; applyFramePose(model,sampleFrames(frames,normalizedTime),1);
   // Keep the non-weapon foot planted by subtly sinking the root through impact.
   const hit=kind==='heavy'?.46:.37; const impact=Math.exp(-Math.pow((normalizedTime-hit)/.085,2));
@@ -781,6 +786,7 @@ export function poseFrogRigAttack(model,kind='light',normalizedTime=0){
 }
 
 export function poseFrogRigCast(model,t=0){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative('Spell_Simple_Enter',t);
   const k=smooth(t), pulse=Math.sin(clamp01(t)*Math.PI);
   boneAdd(model,'pelvis',-.08,-.08,0); boneAdd(model,'spine2',-.08,-.12,0); boneAdd(model,'chest',-.12,-.18,0);
   boneAdd(model,'upperArmR',-1.05,-.25,.36); boneAdd(model,'forearmR',-1.00,.10,.16); boneAdd(model,'handR',-.22,.18,.10); extraOffset(model,'weapon',-.25,.10,0);
@@ -789,6 +795,7 @@ export function poseFrogRigCast(model,t=0){
 }
 
 export function poseFrogRigFlask(model,t=0){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative('Spell_Simple_Enter',t);
   const pulse=Math.sin(clamp01(t)*Math.PI);
   boneAdd(model,'chest',-.05,-.14,.02); boneAdd(model,'head',.08,.12,0);
   boneAdd(model,'upperArmR',-.72,-.18,.26); boneAdd(model,'forearmR',-1.48,.10,.12); boneAdd(model,'handR',-.28,.08,-.08); extraOffset(model,'weapon',-.18,.18,.08);
@@ -796,6 +803,7 @@ export function poseFrogRigFlask(model,t=0){
 }
 
 export function poseFrogRigDodge(model,t=0){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative('Jump_2',t);
   t=clamp01(t); const compress=Math.sin(t*Math.PI), tuck=Math.sin(clamp01(t*1.35)*Math.PI);
   bonePos(model,'rigRoot',0,-compress*.16,0); boneAdd(model,'pelvis',-.42*compress,0,.08*compress); boneAdd(model,'spine1',.20*compress,0,-.04*compress); boneAdd(model,'chest',.36*compress,0,-.08*compress); boneAdd(model,'head',-.24*compress,0,.10*compress);
   boneAdd(model,'thighL',-.62*tuck,0,.10); boneAdd(model,'thighR',-.56*tuck,0,-.10); boneAdd(model,'shinL',.92*tuck,0,0); boneAdd(model,'shinR',.84*tuck,0,0); boneAdd(model,'footL',-.30*tuck,0,0); boneAdd(model,'footR',-.26*tuck,0,0);
@@ -803,12 +811,14 @@ export function poseFrogRigDodge(model,t=0){
 }
 
 export function poseFrogRigHit(model,t=0,severity=1){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative('Idle_Sword',t*.15);
   const k=Math.sin(clamp01(t)*Math.PI)*severity;
   boneAdd(model,'pelvis',-.08*k,-.22*k,.08*k); boneAdd(model,'spine1',.08*k,.16*k,-.06*k); boneAdd(model,'spine2',.12*k,.30*k,-.12*k); boneAdd(model,'chest',.16*k,.38*k,-.16*k); boneAdd(model,'head',-.12*k,-.24*k,.18*k);
   boneAdd(model,'upperArmL',.12*k,0,-.28*k); boneAdd(model,'upperArmR',.18*k,0,.32*k); boneAdd(model,'forearmL',-.18*k,0,0); boneAdd(model,'forearmR',-.22*k,0,0);
 }
 
 export function poseFrogRigDeath(model,t=0){
+  if(model?.userData?.nativeAnimations)return model.userData.poseNative('Death_D',t);
   t=clamp01(t); const k=smoother(t);
   bonePos(model,'rigRoot',0,-.34*k,0);
   boneAdd(model,'pelvis',-.42*k,.18*k,.92*k); boneAdd(model,'spine1',.18*k,-.12*k,.30*k); boneAdd(model,'spine2',.26*k,-.16*k,.38*k); boneAdd(model,'chest',.32*k,-.20*k,.46*k); boneAdd(model,'head',-.24*k,.10*k,-.34*k);
@@ -818,6 +828,7 @@ export function poseFrogRigDeath(model,t=0){
 }
 
 export function updateFrogRigSecondary(model,dt,{move=0,action=0,time=0}={}){
+  if(model?.userData?.nativeAnimations)return;
   const b=model?.userData?.bones, s=model?.userData?.secondary; if(!b||!s)return;
   const targets=[.025,.045,.065,.085].map((base,i)=>base + move*(.07+i*.035) + action*(.035+i*.025) + Math.sin(time*(2.0+i*.16)+i*.7)*(.008+i*.004));
   const names=['cloak1','cloak2','cloak3','cloak4'];

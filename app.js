@@ -1,6 +1,7 @@
+import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.2';
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.5.5';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.5.5';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.2';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.6.2';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -29,7 +30,8 @@ function createEquipmentViewer(){
   camera.position.set(0,1.8,7.6);camera.lookAt(0,1.25,0);
   const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0x000000,0);host.appendChild(renderer.domElement);
   scene.add(new THREE.HemisphereLight(0xb6c5a4,0x1b1a14,1.5));const lamp=new THREE.DirectionalLight(0xffd7a3,2.5);lamp.position.set(-3,6,5);scene.add(lamp);
-  const model=buildPreviewFrog();scene.add(model);
+  let model=buildPreviewFrog();scene.add(model);
+  createSwampFrogRig({preview:true}).then(m=>{scene.remove(model);model=m;scene.add(model);equipmentViewer?.sync(selectedProfile());}).catch(e=>console.warn('Swamp Frog preview unavailable',e));
   let drag=false,last=0,spin=0.003;
   renderer.domElement.addEventListener('pointerdown',e=>{drag=true;last=e.clientX;renderer.domElement.setPointerCapture(e.pointerId)});
   renderer.domElement.addEventListener('pointermove',e=>{if(drag){const dx=e.clientX-last;last=e.clientX;model.rotation.y+=dx*.012;spin=dx*.001;}});
@@ -38,7 +40,7 @@ function createEquipmentViewer(){
   function resize(){const r=host.getBoundingClientRect();if(r.width&&r.height){renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}}
   new ResizeObserver(resize).observe(host);
   let time=0;function loop(){requestAnimationFrame(loop);if(!bag.hidden){time+=.016;if(!drag)model.rotation.y+=spin;resetFrogRigPose(model);poseFrogRigIdle(model,time,1,false);updateFrogRigSecondary(model,.016,{move:0,action:0,time});renderer.render(scene,camera);}}loop();
-  equipmentViewer={sync(profile){const f=FROGS[profile?.appearance?.frog]||FROGS.tree;const a=profile?.appearance||{};const base=model.userData.customization?.overallScale||1;model.scale.set(base*1.12*f.scale*f.wide*(Number(a.build||100)/100),base*1.12*f.scale*(.93+.07*(Number(a.head||110)/110)),base*1.12*f.scale*(Number(a.build||100)/100));if(model.userData.materials?.frog?.color)model.userData.materials.frog.color.set(a.color||f.color);if(model.userData.materials?.belly?.color)model.userData.materials.belly.color.set(a.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);applyPreviewStarterVisuals(model,profile?.discipline||'knight');resize();}};
+  equipmentViewer={sync(profile){const f=FROGS[profile?.appearance?.frog]||FROGS.tree;const a=profile?.appearance||{};const base=model.userData.customization?.overallScale||1;model.scale.set(base*1.12*f.scale*f.wide*(Number(a.build||100)/100),base*1.12*f.scale*(.93+.07*(Number(a.head||110)/110)),base*1.12*f.scale*(Number(a.build||100)/100));if(model.userData.materials?.frog?.color)model.userData.materials.frog.color.set(a.color||f.color);if(model.userData.materials?.belly?.color)model.userData.materials.belly.color.set(a.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);if(model.userData.nativeAnimations)model.userData.syncGear(getGear(profile));else applyPreviewStarterVisuals(model,profile?.discipline||'knight');resize();}};
   return equipmentViewer;
 }
 function renderBag(){
