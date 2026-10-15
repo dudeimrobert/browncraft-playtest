@@ -1,8 +1,9 @@
-import { createSpeciesPreview } from './assets/species-preview.js?v=2.6.4';
-import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.4';
+import {CATALOG,ITEM_BY_ID,SLOTS,equip as equipItem,unequip as unequipItem,equipmentStats,stackRows,rollLoot,formatStats,itemDescription,occupiedSlots} from './assets/items.js?v=2.6.7';
+import { createSpeciesPreview } from './assets/species-preview.js?v=2.6.7';
+import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.7';
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.4';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.6.4';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.7';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.6.7';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -16,13 +17,13 @@ let bagSignature='';
 function carriedItems(s){
   const profile=selectedProfile(),gear=getGear(profile);
   const items=[...getCollectedLoot().map(row=>({...row,type:'Loot material',details:row.description||'Recovered from a corpse.',flavor:'Scavenged from the realms.'})),{icon:'◒',name:'Brown Flask',type:'Consumable',details:`${s.flasks} / ${s.flasksMax} charges`,flavor:'A little courage for the road.'}];
-  for(const id of gear?.inventory||[])if(GEAR[id])items.push({id,...GEAR[id],type:'Unequipped gear',details:GEAR[id].stat,flavor:'Click to equip to its designated slot.'});
+  for(const {id,count} of stackRows(gear?.inventory||[],GEAR)){const item=GEAR[id];if(item)items.push({id,...item,count,type:item.rarity?`${item.rarity} · ${item.category}`:'Unequipped gear',details:itemDescription(item),flavor:item.slot?'Click to equip.':'Carried item · scripted effects inactive'});else items.push({id:null,name:id,icon:'◇',count,type:'Saved item',details:'Unrecognized saved item retained.',flavor:''});}
   for(const [id,name,flavor] of [['fords','Fragment of Return','The first thread of the greater mystery.'],['steppe','Fragment of Pressure','A weight held inside the Brown.'],['ember','Fragment of Release','A spark awaiting its purpose.']])if(s.pootalKeys?.[id])items.push({icon:'✦',name,type:'Quest item',details:'Recovered',flavor});
   return items;
 }
 function hideBagTooltip(){bagTooltip.hidden=true;}
 function positionBagTooltip(e){const x=Math.min(e.clientX+18,innerWidth-bagTooltip.offsetWidth-12),y=Math.min(e.clientY+18,innerHeight-bagTooltip.offsetHeight-12);bagTooltip.style.left=Math.max(8,x)+'px';bagTooltip.style.top=Math.max(8,y)+'px';}
-const SLOT_ICON={head:'♜',chest:'▥',legs:'▤',hands:'✥',feet:'♧',accessory:'✦',mainHand:'⚔',offhand:'⬟'};
+const SLOT_ICON={shoulders:'♜',back:'▥',neck:'✦',ring_1:'◌',ring_2:'◌',belt:'═',head:'♜',chest:'▥',legs:'▤',hands:'✥',feet:'♧',accessory:'✦',mainHand:'⚔',offhand:'⬟'};
 let equipmentViewer=null;
 function createEquipmentViewer(){
   if(equipmentViewer)return equipmentViewer;
@@ -50,13 +51,13 @@ function renderBag(){
   const profile=selectedProfile(),gear=getGear(profile),items=carriedItems(state);
   const signature=JSON.stringify({items,gear,profile:profile?.id,croaks:getCroaks()});if(signature===bagSignature)return;bagSignature=signature;
   q('#equipmentCharacterLabel').textContent=`${profile?.name||'Wanderer'} · ${DISCIPLINES[profile?.discipline]?.label||'Knight'} · ${FROGS[profile?.appearance?.frog]?.label||'Tree Frog'}`;
-  const slotMarkup=slot=>{const itemId=gear?.equipped?.[slot],item=GEAR[itemId];return `<button class="equipment-slot" data-unequip-slot="${slot}" ${item?'':'disabled'} title="${item?'Unequip '+esc(item.name):'Empty '+GEAR_SLOTS[slot]}"><span class="slot-icon">${item?.icon||SLOT_ICON[slot]}</span><span class="slot-name">${GEAR_SLOTS[slot]}</span><span class="slot-item">${item?esc(item.name):'Empty'}</span></button>`};
-  q('#equipmentSlotsLeft').innerHTML=['head','chest','legs'].map(slotMarkup).join('');
-  q('#equipmentSlotsRight').innerHTML=['hands','feet','accessory'].map(slotMarkup).join('');
+  const slotMarkup=slot=>{const itemId=gear?.equipped?.[slot],item=GEAR[itemId];const reserved=slot==='offhand'&&occupiedSlots(GEAR[gear?.equipped?.mainHand]).length===2;return `<button class="equipment-slot" data-unequip-slot="${slot}" ${item?'':'disabled'} title="${item?'Unequip '+esc(item.name):'Empty '+GEAR_SLOTS[slot]}"><span class="slot-icon">${item?.icon||SLOT_ICON[slot]}</span><span class="slot-name">${GEAR_SLOTS[slot]}</span><span class="slot-item">${item?esc(item.name):reserved?'Both hands occupied':'Empty'}</span></button>`};
+  q('#equipmentSlotsLeft').innerHTML=['head','chest','legs','shoulders','back','belt'].map(slotMarkup).join('');
+  q('#equipmentSlotsRight').innerHTML=['hands','feet','neck','ring_1','ring_2','accessory'].map(slotMarkup).join('');
   q('#equipmentWeapons').innerHTML=['mainHand','offhand'].map(slotMarkup).join('');
-  bag.querySelectorAll('[data-unequip-slot]').forEach(btn=>btn.addEventListener('click',()=>{const slot=btn.dataset.unequipSlot,id=getGear(selectedProfile())?.equipped?.[slot];if(id)transferGear(selectedProfile(),id,'equipment');}));
-  const bonus=gearBonuses(profile);q('#equipmentBonusLine').textContent=`GEAR BONUS · Fiber +${bonus.vitality} · Pressure +${bonus.might} · Brown +${bonus.arcana} · Gut +${bonus.endurance}`;
-  bagGrid.innerHTML=Array.from({length:30},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" aria-label="${esc(items[i].name)}"><span>${items[i].icon||'◈'}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:''}</button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');
+  bag.querySelectorAll('[data-unequip-slot]').forEach(btn=>btn.addEventListener('click',()=>{const slot=btn.dataset.unequipSlot,id=getGear(selectedProfile())?.equipped?.[slot];if(id)transferGear(selectedProfile(),id,'equipment',slot);}));
+  const bonus=gearBonuses(profile);q('#equipmentBonusLine').textContent=`${formatStats(equipmentStats(gear,GEAR))} · Starter: Fiber +${bonus.vitality} · Pressure +${bonus.might} · Brown +${bonus.arcana} · Gut +${bonus.endurance}`;
+  bagGrid.innerHTML=Array.from({length:Math.max(30,items.length)},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" data-rarity="${items[i].rarity||'common'}" aria-label="${esc(items[i].name)}"><span>${items[i].icon||'◈'}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:items[i].count>1?`<em>${items[i].count}</em>`:''}<small>${esc(items[i].name)}</small></button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');
   bagGrid.querySelectorAll('[data-slot]').forEach(slot=>{const item=items[Number(slot.dataset.slot)];const show=e=>{bagTooltip.innerHTML=`<strong>${esc(item.name)}</strong><small>${esc(item.type)}</small><p>${esc(item.details)}</p><i>${esc(item.flavor)}</i>`;bagTooltip.hidden=false;const r=slot.getBoundingClientRect();positionBagTooltip(e.clientX===undefined?{clientX:r.right,clientY:r.top}:e)};slot.addEventListener('pointerenter',show);slot.addEventListener('pointermove',positionBagTooltip);slot.addEventListener('pointerleave',hideBagTooltip);slot.addEventListener('focus',show);slot.addEventListener('blur',hideBagTooltip);if(item.id)slot.addEventListener('click',()=>{hideBagTooltip();transferGear(selectedProfile(),item.id,'inventory')});});
   renderWallet();
   createEquipmentViewer().sync(profile);
@@ -69,12 +70,6 @@ const croakKey=profile=>`browncraft-croaks-v1-${profile?.id||'guest'}`;
 const lootBagKey=profile=>`browncraft-loot-items-v1-${profile?.id||'guest'}`;
 const corpseRewards=new Map();
 let openCorpseId=null;
-const LOOT_POOL=[
-  {id:'bog-thread',name:'Bog Thread',icon:'🧵',description:'A damp length of useful swamp fiber.'},
-  {id:'bent-nail',name:'Bent Nail',icon:'🪛',description:'A corroded bit of scavenged hardware.'},
-  {id:'moss-clump',name:'Moss Clump',icon:'🌿',description:'Soft, faintly questionable moss.'},
-  {id:'frog-bone',name:'Little Bone',icon:'🦴',description:'Its former owner remains unknown.'},
-];
 const getCroaks=()=>Math.max(0,Number(localStorage.getItem(croakKey(selectedProfile()))||0)||0);
 const walletParts=amount=>({gold:Math.floor(amount/100),silver:Math.floor(amount%100/10),copper:amount%10});
 const getCollectedLoot=()=>{try{const v=JSON.parse(localStorage.getItem(lootBagKey(selectedProfile()))||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
@@ -83,8 +78,8 @@ function renderWallet(){const el=q('#croaksWallet');if(!el)return;const c=wallet
 function makeCorpseRewards(info){
   // Roll once at death: reopening never re-rolls.
   const total=info.boss?100+Math.floor(Math.random()*101):1+Math.floor(Math.random()*80);
-  const item=Math.random()<(info.boss?1:0.6)?LOOT_POOL[Math.floor(Math.random()*LOOT_POOL.length)]:null;
-  const rows=[{id:'croaks',kind:'currency',name:'Croaks',amount:total},...(item?[{id:item.id,kind:'item',name:item.name,icon:item.icon,description:item.description,amount:1}]:[])];
+  const item=Math.random()<(info.boss?1:0.6)?rollLoot({level:world?.state?.level||1,elite:!!info.boss}):null;
+  const rows=[{id:'croaks',kind:'currency',name:'Croaks',amount:total},...(item?[{id:item.id,kind:'item',name:item.name,icon:item.icon,description:itemDescription(item),amount:1}]:[])];
   corpseRewards.set(info.enemyId,{name:info.name,rows});
 }
 function croakVisual(amount){const p=walletParts(amount);const denomination=p.gold?'100':p.silver?'10':'1';const units=p.gold||p.silver||p.copper;const shape=units>=50?'Stack':units>=10?'LoosePile':'';return `assets/croaks/Croaks_${denomination}${shape?'_'+shape:''}.png`;}
@@ -100,7 +95,7 @@ function takeCorpseRow(index){
   const corpse=corpseRewards.get(openCorpseId);if(!corpse)return;
   const row=corpse.rows[index];if(!row)return;
   if(row.kind==='currency')localStorage.setItem(croakKey(selectedProfile()),String(getCroaks()+row.amount));
-  else {const items=getCollectedLoot();items.push({...row});saveCollectedLoot(items);}
+  else if(ITEM_BY_ID[row.id]){const gear=getGear(selectedProfile());gear.inventory.push(row.id);saveGear(selectedProfile(),gear);}else {const items=getCollectedLoot();items.push({...row});saveCollectedLoot(items);}
   corpse.rows.splice(index,1);bagSignature='';renderWallet();
   if(!bag.hidden)renderBag();
   if(!corpse.rows.length){world?.markCorpseLooted(openCorpseId);corpseRewards.delete(openCorpseId);closeLoot();}else renderLoot();
@@ -202,7 +197,7 @@ const FROGS = {
   glass:{label:'Glass Frog',scale:.95,wide:.88,color:'#9bbc98'},
   toad:{label:'Swamp Toad',scale:1.04,wide:1.15,color:'#857050'}
 };
-const GEAR = {
+const LEGACY_GEAR = {
   rusty_sword:{name:'Rusty Sword',slot:'mainHand',stat:'Pressure +1',bonus:{might:1},icon:'⚔'},
   wooden_guard:{name:'Wooden Guard',slot:'offhand',stat:'Fiber +1',bonus:{vitality:1},icon:'⬟'},
   worn_tunic:{name:'Worn Tunic',slot:'chest',stat:'Fiber +1',bonus:{vitality:1},icon:'▤'},
@@ -215,7 +210,8 @@ const GEAR = {
   cracked_helm:{name:'Cracked Helm',slot:'head',stat:'Fiber +1',bonus:{vitality:1},icon:'♜'},
   mossy_boots:{name:'Mossy Boots',slot:'feet',stat:'Gut +1',bonus:{endurance:1},icon:'♧'}
 };
-const GEAR_SLOTS={head:'Head',chest:'Chest',hands:'Hands',legs:'Legs',feet:'Feet',mainHand:'Main Hand',offhand:'Offhand',accessory:'Accessory'};
+const GEAR={...LEGACY_GEAR,...ITEM_BY_ID};
+const GEAR_SLOTS=SLOTS;
 const STARTER_GEAR={
   knight:{mainHand:'rusty_sword',offhand:'wooden_guard',chest:'worn_tunic'},
   caster:{mainHand:'warped_wand',chest:'faded_robe'},
@@ -225,9 +221,15 @@ const STARTER_GEAR={
 const gearKeyFor=id=>`browncraft-gear-v1:${id}`;
 function getGear(profile){if(!profile)return null;let data;try{data=JSON.parse(localStorage.getItem(gearKeyFor(profile.id))||'null')}catch{};return data&&typeof data==='object'&&Array.isArray(data.inventory)&&data.equipped?data:{equipped:{...STARTER_GEAR[profile.discipline]||STARTER_GEAR.knight},inventory:[]};}
 function saveGear(profile,data){localStorage.setItem(gearKeyFor(profile.id),JSON.stringify(data));}
-function transferGear(profile,itemId,source){const data=getGear(profile),item=GEAR[itemId];if(!data||!item)return false;if(source==='inventory') {const ix=data.inventory.indexOf(itemId);if(ix<0)return false;data.inventory.splice(ix,1);const previous=data.equipped[item.slot];if(previous)data.inventory.push(previous);data.equipped[item.slot]=itemId;}else{if(data.equipped[item.slot]!==itemId)return false;delete data.equipped[item.slot];data.inventory.push(itemId);}saveGear(profile,data);updateGearOnWorld(profile);return true;}
+function transferGear(profile,itemId,source,slot){
+ const data=getGear(profile),item=GEAR[itemId];if(!data||!item)return false;
+ const level=state&&world?.profile?.id===profile.id?state.level:progressFor(profile).level;
+ const ok=source==='inventory'?equipItem(data,itemId,GEAR,level):unequipItem(data,itemId,slot||Object.keys(data.equipped).find(s=>data.equipped[s]===itemId));
+ if(!ok){world?.say?.(item.slot?`Requires level ${item.level_required||1}.`:'This item is carried in your bag. Its effects are not active yet.');return false;}
+ saveGear(profile,data);updateGearOnWorld(profile);return true;
+}
 function gearBonuses(profile){const bonuses={vitality:0,might:0,arcana:0,endurance:0};Object.values(getGear(profile)?.equipped||{}).forEach(id=>{Object.entries(GEAR[id]?.bonus||{}).forEach(([key,value])=>bonuses[key]+=value)});return bonuses;}
-function updateGearOnWorld(profile){if(world&&profile?.id===selectedProfile()?.id){world.characterGear=getGear(profile);world.dispatchEvent(new CustomEvent('character-gear-changed',{detail:world.characterGear}));}bagSignature='';if(!menu.hidden)renderMenu();if(!bag.hidden)renderBag();}
+function updateGearOnWorld(profile){if(world&&profile?.id===selectedProfile()?.id){world.characterGear=getGear(profile);world.characterItemStats=equipmentStats(world.characterGear,GEAR);world.characterLegacyBonuses=gearBonuses(profile);world.applyDerivedStats(false);world.emit();world.dispatchEvent(new CustomEvent('character-gear-changed',{detail:world.characterGear}));}bagSignature='';if(!menu.hidden)renderMenu();if(!bag.hidden)renderBag();}
 
 
 let world = null;
@@ -618,6 +620,8 @@ function startGame(profile){
   world.id='world';
   world.characterProfile={...profile, ...(DISCIPLINES[profile.discipline]||DISCIPLINES.knight)};
   world.characterGear=getGear(profile);
+  world.characterItemStats=equipmentStats(world.characterGear,GEAR);
+  world.characterLegacyBonuses=gearBonuses(profile);
   hideGuardianVictory();
   world.addEventListener('guardian-slay',e=>showGuardianVictory(e.detail));
   world.addEventListener('corpse-created',e=>makeCorpseRewards(e.detail));
@@ -704,12 +708,12 @@ function renderMenu(){
     panel.querySelectorAll('[data-growth]').forEach(b=>b.addEventListener('click',()=>world?.act?.(`growthset:${b.dataset.growth}`)));
   } else if(currentTab==='inventory') {
     const profile=selectedProfile(),g=getGear(profile);
-    panel.innerHTML=`<h2>Inventory</h2><div class="sub">Items carried but not equipped</div><div class="menu-grid">${(g?.inventory||[]).map((id,i)=>GEAR[id]?`<div class="menu-row"><div><span>${esc(GEAR[id].name)}</span><small>${esc(GEAR[id].stat)} · ${esc(GEAR_SLOTS[GEAR[id].slot])}</small></div><button class="equip-item-action" data-equip-idx="${i}">Equip</button></div>`:'').join('')||'<div class="menu-row">Your bag is empty. Explore for equipment.</div>'}<div class="menu-row"><span>Brown Flask</span><strong>${state.flasks}</strong></div>${[['fords','Fragment of Return'],['steppe','Fragment of Pressure'],['ember','Fragment of Release']].map(([id,name])=>`<div class="menu-row"><span>${name}</span><strong>${state.pootalKeys?.[id]?'Recovered':'—'}</strong></div>`).join('')}</div>`;
+    panel.innerHTML=`<h2>Inventory</h2><div class="sub">Items carried but not equipped</div><div class="menu-grid">${(g?.inventory||[]).map((id,i)=>GEAR[id]?`<div class="menu-row"><div><span>${esc(GEAR[id].name)}</span><small>${esc(itemDescription(GEAR[id]))} · ${esc(GEAR_SLOTS[GEAR[id].slot])}</small></div>${GEAR[id].slot?`<button class="equip-item-action" data-equip-idx="${i}">Equip</button>`:'<span>Carried</span>'}</div>`:'').join('')||'<div class="menu-row">Your bag is empty. Explore for equipment.</div>'}<div class="menu-row"><span>Brown Flask</span><strong>${state.flasks}</strong></div>${[['fords','Fragment of Return'],['steppe','Fragment of Pressure'],['ember','Fragment of Release']].map(([id,name])=>`<div class="menu-row"><span>${name}</span><strong>${state.pootalKeys?.[id]?'Recovered':'—'}</strong></div>`).join('')}</div>`;
     panel.querySelectorAll('[data-equip-idx]').forEach(btn=>btn.onclick=()=>transferGear(profile,g.inventory[Number(btn.dataset.equipIdx)],'inventory'));
   } else if(currentTab==='equipment') {
     const profile=selectedProfile(),g=getGear(profile),bonus=gearBonuses(profile);
-    panel.innerHTML=`<h2>Equipment</h2><div class="sub">Worn and wielded · class starter gear</div><div class="equipment-statline">Gear bonuses: Fiber +${bonus.vitality} · Pressure +${bonus.might} · Brown +${bonus.arcana} · Gut +${bonus.endurance}</div><div class="menu-grid">${Object.entries(GEAR_SLOTS).map(([slot,label])=>{const id=g?.equipped?.[slot],item=GEAR[id];return `<div class="menu-row"><div><span>${label}</span><small>${item?esc(item.name)+' · '+esc(item.stat):'Empty'}</small></div>${item?`<button class="equip-item-action" data-unequip="${slot}">Unequip</button>`:''}</div>`}).join('')}</div>`;
-    panel.querySelectorAll('[data-unequip]').forEach(btn=>btn.onclick=()=>transferGear(profile,g.equipped[btn.dataset.unequip],'equipment'));
+    panel.innerHTML=`<h2>Equipment</h2><div class="sub">Worn and wielded · catalog equipment</div><div class="equipment-statline">Gear bonuses: Fiber +${bonus.vitality} · Pressure +${bonus.might} · Brown +${bonus.arcana} · Gut +${bonus.endurance} · ${formatStats(equipmentStats(g,GEAR))}</div><div class="menu-grid">${Object.entries(GEAR_SLOTS).map(([slot,label])=>{const id=g?.equipped?.[slot],item=GEAR[id];return `<div class="menu-row"><div><span>${label}</span><small>${item?esc(item.name)+' · '+esc(item.stat):'Empty'}</small></div>${item?`<button class="equip-item-action" data-unequip="${slot}">Unequip</button>`:''}</div>`}).join('')}</div>`;
+    panel.querySelectorAll('[data-unequip]').forEach(btn=>btn.onclick=()=>transferGear(profile,g.equipped[btn.dataset.unequip],'equipment',btn.dataset.unequip));
   }
   else {
     panel.innerHTML=`<h2>Settings</h2><div class="sub">System and controls</div>
@@ -829,3 +833,12 @@ function renderBossDialog(s){
 }
 bossDialog.querySelector('button').addEventListener('click',()=>world?.act('boss-intro-close'));
 bossDialog.addEventListener('cancel',e=>{e.preventDefault();world?.act('boss-intro-close');});
+
+// Read-only catalog: discovery does not grant items or alter character saves.
+const catalogDialog=document.createElement('dialog');catalogDialog.className='catalog-dialog';catalogDialog.setAttribute('aria-labelledby','catalogTitle');
+catalogDialog.innerHTML='<header><div><small>BROWNCRAFT FIELD GUIDE</small><h2 id="catalogTitle">Item catalog</h2></div><button id="catalogClose" aria-label="Close item catalog">×</button></header><p>Flat equipment stats are active. Special effects, sets, consumable actions, and fitted armor visuals are pending.</p><label>Search items <input id="catalogSearch" type="search" placeholder="Name, rarity, or category"></label><small id="catalogCount"></small><div id="catalogRows"></div>';
+document.body.appendChild(catalogDialog);
+function renderCatalog(){const term=catalogDialog.querySelector('input').value.trim().toLowerCase();const rows=CATALOG.filter(i=>`${i.name} ${i.rarity} ${i.category} ${i.slot||''}`.toLowerCase().includes(term));catalogDialog.querySelector('#catalogCount').textContent=`${rows.length} of ${CATALOG.length} items`;catalogDialog.querySelector('#catalogRows').innerHTML=rows.map(i=>`<article data-rarity="${i.rarity}"><strong>${i.icon} ${esc(i.name)}</strong><small>${esc(i.rarity)} · ${esc(i.category)} · ${esc(i.slot||'Carried item')} · Level ${i.level_required}</small><p>${esc(i.stat)}</p>${i.effects.length?`<p class="pending-effects">Planned effects (inactive): ${esc(i.effects.join('; '))}</p>`:''}<small>${esc(i.loot_pools.join(' · '))}</small></article>`).join('');}
+q('#itemCatalogBtn').onclick=()=>{hideBagTooltip();renderCatalog();catalogDialog.showModal();catalogDialog.querySelector('input').focus();};
+catalogDialog.querySelector('#catalogClose').onclick=()=>catalogDialog.close();catalogDialog.querySelector('input').oninput=renderCatalog;
+catalogDialog.addEventListener('keydown',e=>e.stopPropagation());

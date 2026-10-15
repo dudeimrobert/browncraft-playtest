@@ -1,4 +1,4 @@
-import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.4';
+import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.7';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';

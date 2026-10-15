@@ -1,12 +1,12 @@
-import {usesSwampFrog} from './species-preview.js?v=2.6.4';
-import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.4';
+import {usesImportedFrog} from './species-preview.js?v=2.6.7';
+import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.7';
 import { captureLevel, applyProject, loadProject } from './level-project.js';
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.4';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.7';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.4';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.6.4';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.7';
+import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.6.7';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -1291,12 +1291,13 @@ class World3D extends HTMLElement {
 
   applyDerivedStats(refill = false) {
     const s = this.state;
-    const hp = 75 + (s.vitality - 1) * 12 + (s.level - 1) * 3;
-    const stam = 60 + (s.endurance - 1) * 10 + (s.level - 1) * 2;
-    const focus = 60 + (s.arcana - 1) * 14 + (s.level - 1) * 2;
+    const g=this.characterItemStats||{},legacy=this.characterLegacyBonuses||{};
+    const hp = Math.max(1,75 + (s.vitality+(legacy.vitality||0) - 1) * 12 + (s.level - 1) * 3+(g.HP||0));
+    const stam = Math.max(1,60 + (s.endurance+(legacy.endurance||0) - 1) * 10 + (s.level - 1) * 2+(g.STA||0));
+    const focus = Math.max(1,60 + (s.arcana+(legacy.arcana||0) - 1) * 14 + (s.level - 1) * 2+(g.BRC||0));
     s.hpMax = hp; s.stamMax = stam; s.focusMax = focus;
-    s.attackPower = 1 + (s.might - 1) * 0.13;
-    s.magicPower = 1 + (s.arcana - 1) * 0.15;
+    s.attackPower = 1 + (s.might+(legacy.might||0) - 1) * 0.13;
+    s.magicPower = 1 + (s.arcana+(legacy.arcana||0) - 1) * 0.15;
     s.xpNext = this.xpForLevel(s.level);
     if (refill) { s.hp = hp; s.stam = stam; s.focus = focus; }
     else { s.hp = Math.min(s.hp, hp); s.stam = Math.min(s.stam, stam); s.focus = Math.min(s.focus, focus); }
@@ -1450,8 +1451,8 @@ class World3D extends HTMLElement {
 
   async buildFrogKnight(ringColor){
     try {
-      const rig = usesSwampFrog(this.profile?.appearance?.frog)
-        ? await createSwampFrogRig({ ringColor })
+      const rig = usesImportedFrog(this.profile?.appearance?.frog)
+        ? await createSwampFrogRig({ ringColor, species:this.profile?.appearance?.frog })
         : await createMeshyFrogKnightRig({ ringColor });
       rig.userData.syncGear?.(this.characterGear);
       rig.userData.visualRoot = rig;
@@ -1865,6 +1866,7 @@ class World3D extends HTMLElement {
 
   hurtPlayer(dmg, from) {
     if (this.dodging && this.dodging.t < 0.3) { this.popup('miss', '#e7e0d0', this.playerObj.position); return; }
+    if(Math.random()<Math.max(0,Math.min(.75,(this.characterItemStats?.EVA||0)/100))){this.popup('evade','#e7e0d0',this.playerObj.position);return;}
     let taken = dmg;
     if (this.blocking) {
       taken = Math.max(1, Math.round(dmg * 0.25));
@@ -1877,6 +1879,7 @@ class World3D extends HTMLElement {
         this.popup('guard broken', '#d94f2b', this.playerObj.position);
       }
     }
+    taken=Math.max(1,taken-(this.characterItemStats?.DEF||0));
     if (this.state.shield > 0) {
       const absorbed=Math.min(this.state.shield, Math.ceil(taken*0.65));
       this.state.shield-=absorbed; taken-=absorbed;
@@ -1928,8 +1931,10 @@ class World3D extends HTMLElement {
     this.mark();
   }
 
-  hurtFoe(foe, dmg, label) {
+  hurtFoe(foe, dmg, label, magic=false) {
     if(foe.hp<=0)return;
+    dmg=Math.max(1,dmg+(this.characterItemStats?.[magic?'BRC':'ATK']||0));
+    if(Math.random()<Math.max(0,Math.min(1,(this.characterItemStats?.CRIT||0)/100)))dmg=Math.round(dmg*1.5);
     foe.hp = Math.max(0, foe.hp - dmg);
     foe.flash = 0.3;
     foe.staggerT = 0.24;
@@ -2479,7 +2484,7 @@ class World3D extends HTMLElement {
     this.boltLight.position.copy(this.bolt.position);
     this.boltLight.intensity = 8;
     if (b.t >= 0.45) {
-      if (b.foe.hp > 0) this.hurtFoe(b.foe, Math.round(rnd(SPELLS.bolt.dmg[0], SPELLS.bolt.dmg[1]) * this.state.magicPower), '#9fd8ff');
+      if (b.foe.hp > 0) this.hurtFoe(b.foe, Math.round(rnd(SPELLS.bolt.dmg[0], SPELLS.bolt.dmg[1]) * this.state.magicPower), '#9fd8ff',true);
       this.bolt.visible = false;
       this.boltLight.intensity = 0;
       this.boltFly = null;

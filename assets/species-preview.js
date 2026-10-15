@@ -1,15 +1,18 @@
-import {createSwampFrogRig} from './swamp-frog-rig.js?v=2.6.4';
+import {createSwampFrogRig} from './swamp-frog-rig.js?v=2.6.7';
 export const usesSwampFrog = species => species === 'toad';
-// Each view owns its own skeleton; changing selection during a load cannot
-// substitute the wrong species when that asynchronous request finishes.
-export function createSpeciesPreview({scene,initial,onChange,loadSwamp=()=>createSwampFrogRig({preview:true})}) {
-  let current=initial,swamp,pending,requested='tree';
+export const usesImportedFrog = species => species === 'toad' || species === 'tree';
+export function createSpeciesPreview({scene,initial,onChange,loadSwamp=()=>createSwampFrogRig({preview:true}),loadTree=()=>createSwampFrogRig({preview:true,species:'tree'})}) {
+  let current=initial,requested;
+  const models=new Map(),pending=new Map();
   function install(next){if(next===current)return;next.rotation.y=current.rotation.y;scene.remove(current);current=next;scene.add(current);onChange(current);}
   return {get model(){return current;},async select(species){
     requested=species;
-    if(!usesSwampFrog(species)){install(initial);return current;}
-    if(!swamp){pending ||= loadSwamp().catch(e=>{pending=null;throw e;});swamp=await pending;}
-    if(usesSwampFrog(requested))install(swamp);
+    if(!usesImportedFrog(species)){install(initial);return current;}
+    if(!models.has(species)){
+      if(!pending.has(species))pending.set(species,(species==='tree'?loadTree:loadSwamp)().catch(e=>{pending.delete(species);throw e;}));
+      models.set(species,await pending.get(species));
+    }
+    if(requested===species)install(models.get(species));
     return current;
   }};
 }

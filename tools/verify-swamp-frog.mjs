@@ -8,7 +8,8 @@ import {poseFrogRigWalk,poseFrogRigAttack,poseFrogRigCast,poseFrogRigDeath,reset
 // this Node-only structural check; appearance still requires a browser review.
 globalThis.self=globalThis;
 globalThis.ProgressEvent=class{constructor(type,init){Object.assign(this,{type},init);}};
-const bytes=fs.readFileSync(new URL('../assets/models/swamp-frog.glb',import.meta.url));
+const tree=process.argv.includes('--tree');
+const bytes=fs.readFileSync(new URL('../assets/models/'+(tree?'tree-frog.glb':'swamp-frog.glb'),import.meta.url));
 assert.equal(bytes.readUInt32LE(8),bytes.length);
 const size=bytes.readUInt32LE(12),data=JSON.parse(bytes.subarray(20,20+size).toString());
 const binary=bytes.subarray(28+size);
@@ -16,8 +17,8 @@ delete data.images;delete data.textures;delete data.samplers;data.materials=[{}]
 data.buffers[0].uri='data:application/octet-stream;base64,'+binary.toString('base64');
 const loader=new GLTFLoader();const asset=await loader.parseAsync(JSON.stringify(data),'');
 GLTFLoader.prototype.loadAsync=async()=>asset;
-const a=await createSwampFrogRig(),b=await createSwampFrogRig();
-assert.equal(a.userData.animationNames.length,10);assert.notEqual(a.userData.bones.hand_r,b.userData.bones.hand_r);
+const a=await createSwampFrogRig({species:tree?'tree':'toad'}),b=await createSwampFrogRig({species:tree?'tree':'toad'});
+assert.equal(a.userData.animationNames.length,tree?17:27);assert.notEqual(a.userData.bones.hand_r,b.userData.bones.hand_r);
 const origin=a.position.clone(),v=new THREE.Vector3();
 for(const name of a.userData.animationNames)for(const t of [0,.25,.5,.75,1]){
  a.userData.poseNative(name,t);const mesh=a.userData.meshyMesh;
@@ -28,4 +29,4 @@ for(const fn of [poseFrogRigWalk,poseFrogRigCast,poseFrogRigDeath]){resetFrogRig
 a.userData.syncGear({equipped:{mainHand:'rusty_sword',offhand:'wooden_guard'}});assert.ok(a.userData.weapon.visible&&a.userData.shield.visible);
 a.userData.syncGear({equipped:{}});assert.ok(!a.userData.weapon.visible&&!a.userData.shield.visible);
 assert.equal(a.userData.weapon.parent,a.userData.bones.hand_r);assert.equal(a.userData.shield.parent,a.userData.bones.hand_l);
-console.log('PASS: actual Swamp Frog skin, 10 clips sampled, independent cloned skeletons, in-place root, pose adapters, equipment sockets and unequip visibility.');
+console.log('PASS: actual Swamp Frog skin, 27 clips sampled, independent cloned skeletons, in-place root, pose adapters, equipment sockets and unequip visibility.');
