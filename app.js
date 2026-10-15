@@ -1,7 +1,8 @@
-import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.2';
+import { createSpeciesPreview } from './assets/species-preview.js?v=2.6.4';
+import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.4';
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.2';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.6.2';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.4';
+import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.6.4';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -14,7 +15,7 @@ const bag=q('#bag'), bagGrid=q('#bagGrid'), bagTooltip=q('#bagTooltip');
 let bagSignature='';
 function carriedItems(s){
   const profile=selectedProfile(),gear=getGear(profile);
-  const items=[{icon:'◒',name:'Brown Flask',type:'Consumable',details:`${s.flasks} / ${s.flasksMax} charges`,flavor:'A little courage for the road.'}];
+  const items=[...getCollectedLoot().map(row=>({...row,type:'Loot material',details:row.description||'Recovered from a corpse.',flavor:'Scavenged from the realms.'})),{icon:'◒',name:'Brown Flask',type:'Consumable',details:`${s.flasks} / ${s.flasksMax} charges`,flavor:'A little courage for the road.'}];
   for(const id of gear?.inventory||[])if(GEAR[id])items.push({id,...GEAR[id],type:'Unequipped gear',details:GEAR[id].stat,flavor:'Click to equip to its designated slot.'});
   for(const [id,name,flavor] of [['fords','Fragment of Return','The first thread of the greater mystery.'],['steppe','Fragment of Pressure','A weight held inside the Brown.'],['ember','Fragment of Release','A spark awaiting its purpose.']])if(s.pootalKeys?.[id])items.push({icon:'✦',name,type:'Quest item',details:'Recovered',flavor});
   return items;
@@ -31,7 +32,8 @@ function createEquipmentViewer(){
   const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.setClearColor(0x000000,0);host.appendChild(renderer.domElement);
   scene.add(new THREE.HemisphereLight(0xb6c5a4,0x1b1a14,1.5));const lamp=new THREE.DirectionalLight(0xffd7a3,2.5);lamp.position.set(-3,6,5);scene.add(lamp);
   let model=buildPreviewFrog();scene.add(model);
-  createSwampFrogRig({preview:true}).then(m=>{scene.remove(model);model=m;scene.add(model);equipmentViewer?.sync(selectedProfile());}).catch(e=>console.warn('Swamp Frog preview unavailable',e));
+  let viewerProfile;
+  const speciesViewer=createSpeciesPreview({scene,initial:model,onChange(m){model=m;equipmentViewer?.sync(viewerProfile);}});
   let drag=false,last=0,spin=0.003;
   renderer.domElement.addEventListener('pointerdown',e=>{drag=true;last=e.clientX;renderer.domElement.setPointerCapture(e.pointerId)});
   renderer.domElement.addEventListener('pointermove',e=>{if(drag){const dx=e.clientX-last;last=e.clientX;model.rotation.y+=dx*.012;spin=dx*.001;}});
@@ -40,13 +42,13 @@ function createEquipmentViewer(){
   function resize(){const r=host.getBoundingClientRect();if(r.width&&r.height){renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}}
   new ResizeObserver(resize).observe(host);
   let time=0;function loop(){requestAnimationFrame(loop);if(!bag.hidden){time+=.016;if(!drag)model.rotation.y+=spin;resetFrogRigPose(model);poseFrogRigIdle(model,time,1,false);updateFrogRigSecondary(model,.016,{move:0,action:0,time});renderer.render(scene,camera);}}loop();
-  equipmentViewer={sync(profile){const f=FROGS[profile?.appearance?.frog]||FROGS.tree;const a=profile?.appearance||{};const base=model.userData.customization?.overallScale||1;model.scale.set(base*1.12*f.scale*f.wide*(Number(a.build||100)/100),base*1.12*f.scale*(.93+.07*(Number(a.head||110)/110)),base*1.12*f.scale*(Number(a.build||100)/100));if(model.userData.materials?.frog?.color)model.userData.materials.frog.color.set(a.color||f.color);if(model.userData.materials?.belly?.color)model.userData.materials.belly.color.set(a.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);if(model.userData.nativeAnimations)model.userData.syncGear(getGear(profile));else applyPreviewStarterVisuals(model,profile?.discipline||'knight');resize();}};
+  equipmentViewer={sync(profile){viewerProfile=profile;speciesViewer.select(profile?.appearance?.frog).catch(e=>console.error('Swamp Toad equipment model failed',e));const f=FROGS[profile?.appearance?.frog]||FROGS.tree;const a=profile?.appearance||{};const base=model.userData.customization?.overallScale||1;model.scale.set(base*1.12*f.scale*f.wide*(Number(a.build||100)/100),base*1.12*f.scale*(.93+.07*(Number(a.head||110)/110)),base*1.12*f.scale*(Number(a.build||100)/100));if(model.userData.materials?.frog?.color)model.userData.materials.frog.color.set(a.color||f.color);if(model.userData.materials?.belly?.color)model.userData.materials.belly.color.set(a.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);if(model.userData.nativeAnimations)model.userData.syncGear(getGear(profile));else applyPreviewStarterVisuals(model,profile?.discipline||'knight');resize();}};
   return equipmentViewer;
 }
 function renderBag(){
   if(bag.hidden||!state)return;
   const profile=selectedProfile(),gear=getGear(profile),items=carriedItems(state);
-  const signature=JSON.stringify({items,gear,profile:profile?.id});if(signature===bagSignature)return;bagSignature=signature;
+  const signature=JSON.stringify({items,gear,profile:profile?.id,croaks:getCroaks()});if(signature===bagSignature)return;bagSignature=signature;
   q('#equipmentCharacterLabel').textContent=`${profile?.name||'Wanderer'} · ${DISCIPLINES[profile?.discipline]?.label||'Knight'} · ${FROGS[profile?.appearance?.frog]?.label||'Tree Frog'}`;
   const slotMarkup=slot=>{const itemId=gear?.equipped?.[slot],item=GEAR[itemId];return `<button class="equipment-slot" data-unequip-slot="${slot}" ${item?'':'disabled'} title="${item?'Unequip '+esc(item.name):'Empty '+GEAR_SLOTS[slot]}"><span class="slot-icon">${item?.icon||SLOT_ICON[slot]}</span><span class="slot-name">${GEAR_SLOTS[slot]}</span><span class="slot-item">${item?esc(item.name):'Empty'}</span></button>`};
   q('#equipmentSlotsLeft').innerHTML=['head','chest','legs'].map(slotMarkup).join('');
@@ -56,11 +58,63 @@ function renderBag(){
   const bonus=gearBonuses(profile);q('#equipmentBonusLine').textContent=`GEAR BONUS · Fiber +${bonus.vitality} · Pressure +${bonus.might} · Brown +${bonus.arcana} · Gut +${bonus.endurance}`;
   bagGrid.innerHTML=Array.from({length:30},(_,i)=>items[i]?`<button class="bag-slot filled" data-slot="${i}" aria-label="${esc(items[i].name)}"><span>${items[i].icon||'◈'}</span>${items[i].name==='Brown Flask'?`<em>${state.flasks}</em>`:''}</button>`:'<div class="bag-slot empty" aria-hidden="true"></div>').join('');
   bagGrid.querySelectorAll('[data-slot]').forEach(slot=>{const item=items[Number(slot.dataset.slot)];const show=e=>{bagTooltip.innerHTML=`<strong>${esc(item.name)}</strong><small>${esc(item.type)}</small><p>${esc(item.details)}</p><i>${esc(item.flavor)}</i>`;bagTooltip.hidden=false;const r=slot.getBoundingClientRect();positionBagTooltip(e.clientX===undefined?{clientX:r.right,clientY:r.top}:e)};slot.addEventListener('pointerenter',show);slot.addEventListener('pointermove',positionBagTooltip);slot.addEventListener('pointerleave',hideBagTooltip);slot.addEventListener('focus',show);slot.addEventListener('blur',hideBagTooltip);if(item.id)slot.addEventListener('click',()=>{hideBagTooltip();transferGear(selectedProfile(),item.id,'inventory')});});
+  renderWallet();
   createEquipmentViewer().sync(profile);
 }
 function openBag(){if(!world||game.hidden||state?.loading||state?.mode==='dead'||state?.pootalDialog)return;if(!menu.hidden)closeMenu();bag.hidden=false;world.setPaused?.(true);bagSignature='';renderBag();q('#bagClose').focus();}
 function closeBag(){if(bag.hidden)return;bag.hidden=true;hideBagTooltip();world?.setPaused?.(false);}
 q('#bagClose').addEventListener('click',closeBag);
+// 2.6.5 — Croaks wallet and character-bound corpse rewards.
+const croakKey=profile=>`browncraft-croaks-v1-${profile?.id||'guest'}`;
+const lootBagKey=profile=>`browncraft-loot-items-v1-${profile?.id||'guest'}`;
+const corpseRewards=new Map();
+let openCorpseId=null;
+const LOOT_POOL=[
+  {id:'bog-thread',name:'Bog Thread',icon:'🧵',description:'A damp length of useful swamp fiber.'},
+  {id:'bent-nail',name:'Bent Nail',icon:'🪛',description:'A corroded bit of scavenged hardware.'},
+  {id:'moss-clump',name:'Moss Clump',icon:'🌿',description:'Soft, faintly questionable moss.'},
+  {id:'frog-bone',name:'Little Bone',icon:'🦴',description:'Its former owner remains unknown.'},
+];
+const getCroaks=()=>Math.max(0,Number(localStorage.getItem(croakKey(selectedProfile()))||0)||0);
+const walletParts=amount=>({gold:Math.floor(amount/100),silver:Math.floor(amount%100/10),copper:amount%10});
+const getCollectedLoot=()=>{try{const v=JSON.parse(localStorage.getItem(lootBagKey(selectedProfile()))||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
+const saveCollectedLoot=items=>localStorage.setItem(lootBagKey(selectedProfile()),JSON.stringify(items));
+function renderWallet(){const el=q('#croaksWallet');if(!el)return;const c=walletParts(getCroaks());el.innerHTML=[['gold',c.gold],['silver',c.silver],['copper',c.copper]].map(([k,n])=>`<div class="croak-unit" title="${k} Croaks"><i class="croak-dot ${k}"></i><strong>${n.toLocaleString()}</strong><small>${k}</small></div>`).join('');}
+function makeCorpseRewards(info){
+  // Roll once at death: reopening never re-rolls.
+  const total=info.boss?100+Math.floor(Math.random()*101):1+Math.floor(Math.random()*80);
+  const item=Math.random()<(info.boss?1:0.6)?LOOT_POOL[Math.floor(Math.random()*LOOT_POOL.length)]:null;
+  const rows=[{id:'croaks',kind:'currency',name:'Croaks',amount:total},...(item?[{id:item.id,kind:'item',name:item.name,icon:item.icon,description:item.description,amount:1}]:[])];
+  corpseRewards.set(info.enemyId,{name:info.name,rows});
+}
+function croakVisual(amount){const p=walletParts(amount);const denomination=p.gold?'100':p.silver?'10':'1';const units=p.gold||p.silver||p.copper;const shape=units>=50?'Stack':units>=10?'LoosePile':'';return `assets/croaks/Croaks_${denomination}${shape?'_'+shape:''}.png`;}
+function renderLoot(){
+  const modal=q('#corpseLoot');if(modal.hidden||!openCorpseId)return;
+  const corpse=corpseRewards.get(openCorpseId);if(!corpse){closeLoot();return;}
+  q('#corpseLootName').textContent=corpse.name;
+  q('#corpseLootRows').innerHTML=corpse.rows.map((entry,i)=>`<div class="corpse-loot-row"><div class="corpse-loot-icon">${entry.kind==='currency'?`<img src="${croakVisual(entry.amount)}" alt="Croaks" loading="lazy">`:esc(entry.icon||'◈')}</div><div class="corpse-loot-desc"><strong>${esc(entry.name)}</strong><small>${entry.kind==='currency'?esc(entry.amount+' Croaks · '+(walletParts(entry.amount).gold?'Gold':walletParts(entry.amount).silver?'Silver':'Copper')+' denomination'):esc(entry.description||'Loot item')}</small></div><button data-take="${i}" aria-label="Take ${esc(entry.name)}">Take</button></div>`).join('')||'<p class="corpse-empty">Nothing remains.</p>';
+  modal.querySelectorAll('[data-take]').forEach(b=>b.onclick=()=>takeCorpseRow(Number(b.dataset.take)));
+  q('#corpseLootAll').disabled=!corpse.rows.length;
+}
+function takeCorpseRow(index){
+  const corpse=corpseRewards.get(openCorpseId);if(!corpse)return;
+  const row=corpse.rows[index];if(!row)return;
+  if(row.kind==='currency')localStorage.setItem(croakKey(selectedProfile()),String(getCroaks()+row.amount));
+  else {const items=getCollectedLoot();items.push({...row});saveCollectedLoot(items);}
+  corpse.rows.splice(index,1);bagSignature='';renderWallet();
+  if(!bag.hidden)renderBag();
+  if(!corpse.rows.length){world?.markCorpseLooted(openCorpseId);corpseRewards.delete(openCorpseId);closeLoot();}else renderLoot();
+}
+function openLoot(info){
+  if(game.hidden||state?.mode==='dead'||state?.loading)return;
+  if(!corpseRewards.has(info.enemyId))makeCorpseRewards(info);
+  if(!bag.hidden)closeBag();if(!menu.hidden)closeMenu();
+  openCorpseId=info.enemyId;q('#corpseLoot').hidden=false;world?.setPaused?.(true);renderLoot();q('#corpseLootAll').focus();
+}
+function closeLoot(){const panel=q('#corpseLoot');if(panel.hidden)return;panel.hidden=true;openCorpseId=null;world?.setPaused?.(false);}
+q('#corpseLootClose').onclick=closeLoot;
+q('#corpseLootAll').onclick=()=>{const corpse=corpseRewards.get(openCorpseId);if(!corpse)return;while(corpseRewards.has(openCorpseId)&&corpse.rows.length)takeCorpseRow(0);};
+
 const desktopControls = q('#desktopControls');
 const mobileControls = q('#mobileControls');
 const deathScreen = q('#deathScreen');
@@ -566,6 +620,8 @@ function startGame(profile){
   world.characterGear=getGear(profile);
   hideGuardianVictory();
   world.addEventListener('guardian-slay',e=>showGuardianVictory(e.detail));
+  world.addEventListener('corpse-created',e=>makeCorpseRewards(e.detail));
+  world.addEventListener('corpse-loot',e=>openLoot(e.detail));
   world.addEventListener('worldstate', e=>{ state=e.detail; renderHud(state); syncRealmMusic(state); });
   worldMount.appendChild(world);
   q('#playerName').textContent=profile.name;
@@ -573,6 +629,7 @@ function startGame(profile){
 }
 function destroyWorld(){
   hideDeathScreen();
+  closeLoot();corpseRewards.clear();
   if(world){ try{ world.setPaused?.(true); world.remove(); }catch(_){} world=null; state=null; }
   worldMount.innerHTML=''; menu.hidden=true;
 }
@@ -677,7 +734,7 @@ const pad=q('#movePad'), knob=q('#moveKnob'); let pid=null;
 function moveFromEvent(e){ if(!world)return; const r=pad.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,max=r.width*.34,m=Math.hypot(dx,dy)||1,k=Math.min(1,max/m),x=dx/max*k,y=dy/max*k; knob.style.transform=`translate(${x*max}px,${y*max}px)`; world.setMove?.(x,y); }
 pad.addEventListener('pointerdown',e=>{pid=e.pointerId;pad.setPointerCapture(pid);moveFromEvent(e)}); pad.addEventListener('pointermove',e=>{if(e.pointerId===pid)moveFromEvent(e)}); function endPad(e){if(pid!==null&&e.pointerId===pid){pid=null;knob.style.transform='';world?.setMove?.(0,0)}} pad.addEventListener('pointerup',endPad); pad.addEventListener('pointercancel',endPad);
 addEventListener('resize',applyLayout);
-addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(e.key.toLowerCase()==='b'&&!game.hidden){e.preventDefault();bag.hidden?openBag():closeBag();return;}if(e.key==='Escape'&&!bag.hidden){e.preventDefault();closeBag();return;} if(e.key==='Escape'&&state?.pootalDialog){e.preventDefault();world?.act('pootal-close');return;} if(e.key==='Escape'&&!q('#newCharacterModal').hidden){closeCreator();return;} if(e.key==='Escape'&&!game.hidden){menu.hidden?openMenu():closeMenu();} });
+addEventListener('keydown',e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;if(e.key.toLowerCase()==='b'&&!game.hidden&&q('#corpseLoot').hidden){e.preventDefault();bag.hidden?openBag():closeBag();return;}if(e.key==='Escape'&&!q('#corpseLoot').hidden){e.preventDefault();closeLoot();return;}if(e.key==='Escape'&&!bag.hidden){e.preventDefault();closeBag();return;} if(e.key==='Escape'&&state?.pootalDialog){e.preventDefault();world?.act('pootal-close');return;} if(e.key==='Escape'&&!q('#newCharacterModal').hidden){closeCreator();return;} if(e.key==='Escape'&&!game.hidden){menu.hidden?openMenu():closeMenu();} });
 
 function applyPreviewStarterVisuals(model,discipline){
   // Temporary, class-specific visual identifiers. Replace with rig-bound class armor GLBs later.
@@ -698,8 +755,8 @@ function ensurePreview(){
   scene.add(new THREE.HemisphereLight(0xa8b0a0,0x1b1712,1.15)); const key=new THREE.DirectionalLight(0xffd7a0,2.3); key.position.set(-4,7,5); scene.add(key); const rim=new THREE.DirectionalLight(0x6ca9c3,1.1); rim.position.set(5,4,-4); scene.add(rim);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(2.35,48),new THREE.MeshStandardMaterial({color:0x15130f,roughness:1})); floor.rotation.x=-Math.PI/2; floor.position.y=-.7; scene.add(floor);
   let model=buildPreviewFrog(); scene.add(model);
-  // Procedural preview supports six interchangeable frog silhouettes without requiring new GLBs.
-  // The in-world character continues using the existing rig until body morph assets are authored.
+  let creatorAppearance={frog:'tree',head:110,build:100,color:FROGS.tree.color},creatorDiscipline='knight';
+  const speciesCreator=createSpeciesPreview({scene,initial:model,onChange(m){model=m;applyFrog(creatorAppearance);preview?.setDiscipline(creatorDiscipline);}});
   let dragging=false,lastX=0,velocity=.002;
   renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;renderer.domElement.setPointerCapture(e.pointerId)}); renderer.domElement.addEventListener('pointermove',e=>{if(!dragging)return; const dx=e.clientX-lastX;lastX=e.clientX;model.rotation.y+=dx*.01;velocity=dx*.001}); renderer.domElement.addEventListener('pointerup',()=>dragging=false);
   function resize(){const r=host.getBoundingClientRect(); if(!r.width||!r.height)return; renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}
@@ -716,6 +773,8 @@ function ensurePreview(){
     renderer.render(scene,camera);
   } loop();
   function applyFrog(cfg){
+    creatorAppearance=cfg||creatorAppearance;
+    speciesCreator.select(creatorAppearance.frog).catch(e=>console.error('Swamp Toad creation model failed',e));
     const f=FROGS[cfg?.frog]||FROGS.tree;
     const head=(Number(cfg?.head)||110)/110,build=(Number(cfg?.build)||100)/100;
     const base=model.userData.customization?.overallScale||1;
@@ -724,7 +783,7 @@ function ensurePreview(){
     if(materials?.frog?.color)materials.frog.color.set(cfg?.color||f.color);
     if(materials?.belly?.color)materials.belly.color.set(cfg?.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);
   }
-  preview={resize,setDiscipline(k){const aura=model.userData.aura;if(aura?.material?.color){aura.material.color.setHex(k==='caster'?0x6aaad3:k==='shaman'?0x8ab879:k==='rogue'?0x6e8557:0xc9a15a);aura.material.opacity=k==='knight'?.18:.28;}applyPreviewStarterVisuals(model,k);},setFrog:applyFrog};
+  preview={resize,setDiscipline(k){creatorDiscipline=k;const aura=model.userData.aura;if(aura?.material?.color){aura.material.color.setHex(k==='caster'?0x6aaad3:k==='shaman'?0x8ab879:k==='rogue'?0x6e8557:0xc9a15a);aura.material.opacity=k==='knight'?.18:.28;}if(model.userData.nativeAnimations)model.userData.syncGear({equipped:{}});else applyPreviewStarterVisuals(model,k);},setFrog:applyFrog};
   applyFrog({frog:'tree',head:110,build:100,color:FROGS.tree.color});
 }
 function buildPreviewFrog(){

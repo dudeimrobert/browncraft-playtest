@@ -1,11 +1,12 @@
-import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.2';
+import {usesSwampFrog} from './species-preview.js?v=2.6.4';
+import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.4';
 import { captureLevel, applyProject, loadProject } from './level-project.js';
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.2';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.4';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.2';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.6.2';
+import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.4';
+import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.6.4';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -1449,8 +1450,10 @@ class World3D extends HTMLElement {
 
   async buildFrogKnight(ringColor){
     try {
-      const rig = await createSwampFrogRig({ ringColor });
-      rig.userData.syncGear(this.characterGear);
+      const rig = usesSwampFrog(this.profile?.appearance?.frog)
+        ? await createSwampFrogRig({ ringColor })
+        : await createMeshyFrogKnightRig({ ringColor });
+      rig.userData.syncGear?.(this.characterGear);
       rig.userData.visualRoot = rig;
       return rig;
     } catch (err) {
@@ -1766,13 +1769,14 @@ class World3D extends HTMLElement {
       ndc.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
       ndc.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
       ray.setFromCamera(ndc, this.camera);
-      const candidates = [...(this.hearthPortal?[this.hearthPortal]:[]), ...(this.enemies?.filter(e => e.hp > 0).map(e => e.obj) || [])];
+      const candidates = [...(this.hearthPortal?[this.hearthPortal]:[]), ...(this.enemies?.filter(e => e.hp > 0 || (e.lootable && !e.looted)).map(e => e.obj) || [])];
       const hits = ray.intersectObjects(candidates, true);
       if (!hits.length) { this.clearTarget(); return; }
       let hitObj=hits[0].object;
       if(this.useClickedPootal(hitObj))return;
       let obj = hitObj, foe = null;
       while (obj && !foe) { foe = this.enemies.find(e => e.obj === obj) || null; obj = obj.parent; }
+      if (foe && foe.hp <= 0 && foe.lootable && !foe.looted) { if (this.playerObj.position.distanceTo(foe.obj.position) > 7) { this.say('Move closer to search the remains.'); return; } this.dispatchEvent(new CustomEvent('corpse-loot',{detail:{enemyId:foe.lootId,name:foe.name,boss:!!foe.boss}})); return; }
       if (foe) this.selectTarget(foe); else this.clearTarget();
     };
     canvas.addEventListener('pointerdown', this._pointerDown);
@@ -1936,6 +1940,10 @@ class World3D extends HTMLElement {
     if (foe.hp === 0) {
       this.clearEnemyAttack(foe);
       foe.deathT = 0;
+      foe.lootable = true;
+      foe.looted = false;
+      foe.lootId = `${this.zone.id}-${this.enemies.indexOf(foe)}-${Date.now()}`;
+      this.dispatchEvent(new CustomEvent('corpse-created',{detail:{enemyId:foe.lootId,name:foe.name,boss:!!foe.boss,zone:this.zone.id}}));
       foe.engaged = false;
       this.state.enemies = this.enemies.filter(e => e.hp > 0).length;
       if (foe.boss) {
@@ -1952,6 +1960,15 @@ class World3D extends HTMLElement {
       if (!this.foes().length) { this.disengage(foe.boss ? `${foe.name} collapses. The ${realmInfo(this.zone.id).key} is yours; the Pootal awakens.` : `${foe.name} falls apart into ash. The Weeping Fjarts fall quiet.`); return; }
     }
     this.mark();
+  }
+
+  markCorpseLooted(id) {
+    const foe=this.enemies.find(e=>e.lootId===id);
+    if(!foe)return;
+    foe.looted=true;
+    foe.lootable=false;
+    foe.obj.visible=false;
+    this.say(`${foe.name}'s remains have been searched.`);
   }
 
   inputDir() {
@@ -2494,14 +2511,14 @@ class World3D extends HTMLElement {
 
     for (const e of this.enemies) {
       if (e.hp <= 0) {
-        if (e.obj.visible) {
+        if (e.obj.visible && (e.deathT || 0) < 0.62) {
           e.deathT = (e.deathT || 0) + dt;
           const k = Math.min(1, e.deathT / 0.62);
           e.obj.rotation.z = k * 1.15;
           e.obj.position.y = this.groundY(e.obj.position) - k * 0.45;
           e.obj.scale.setScalar((e.boss ? 1.72 : 1.2) * (1 - k * 0.22));
           if (e.obj.userData.core) e.obj.userData.core.material.opacity = Math.max(0, .78 * (1-k));
-          if (k >= 1) e.obj.visible = false;
+          if (k >= 1) { e.obj.visible = !!e.lootable && !e.looted; e.obj.rotation.z = 1.15; }
         }
         continue;
       }

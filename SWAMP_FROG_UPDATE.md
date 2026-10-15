@@ -13,3 +13,6 @@ Open rig-test.html on the same server for a Swamp Frog animation inspection, inc
 Verification: existing regression suite plus native skin/animation sampling, skeleton cloning, root position stability, pose adapters and equipment visibility. Browser visual review was not available in this environment; check ground contact, facing, sword/shield fit and motion transitions in your playtest.
 
 Run locally: python3 -m http.server 8000, then open http://localhost:8000/.
+
+## Alpha 2.6.3 correction
+The imported asset is now exclusive to Swamp Toad (species ID toad). Character creation, character roster preview, the equipment overlay and gameplay respect that choice. Other species keep their previous representations. Character creation displays the unarmored model; equipment view uses the current weapon/shield slots. UV editing materials are provided separately.

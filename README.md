@@ -1,5 +1,3 @@
-Browncraft Alpha 2.5.2
+Browncraft Alpha 2.6.5 — Corpse Looting & Croaks
 
-Run the folder from a local HTTP server, then open `index.html`.
-
-See `START_HERE.md` to run the build and `ALPHA_2.5.2_NOTES.md` for verified changes and known limits.
+Run with a local HTTP server and open index.html. See ALPHA_2.6.5_NOTES.md for changes.
