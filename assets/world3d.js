@@ -1,12 +1,11 @@
-import {usesImportedFrog} from './species-preview.js?v=2.6.7';
-import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.7';
+import {modelSpecies} from './species-preview.js?v=2.6.8';
+import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.8';
 import { captureLevel, applyProject, loadProject } from './level-project.js';
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.7';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.8';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.7';
-import { createMeshyFrogKnightRig } from './meshy-frog-rig.js?v=2.6.7';
+import { poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.8';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;
@@ -1450,19 +1449,11 @@ class World3D extends HTMLElement {
   weaponArm(bladeColor){ const arm=new THREE.Group();arm.position.set(.5,1.22,.06);const hilt=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.48,8),new THREE.MeshStandardMaterial({color:0x4b3524,roughness:.75}));hilt.rotation.x=Math.PI/2;hilt.position.z=.08;arm.add(hilt);const blade=new THREE.Mesh(new THREE.BoxGeometry(.12,.06,1.8),new THREE.MeshStandardMaterial({color:bladeColor,roughness:.28,metalness:.68}));blade.position.z=.95;blade.castShadow=true;arm.add(blade);const trail=new THREE.Mesh(new THREE.PlaneGeometry(.6,1.55),new THREE.MeshBasicMaterial({color:0xe4c98f,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));trail.position.set(0,.02,.95);trail.rotation.x=Math.PI/2;arm.add(trail);arm.userData.trail=trail;arm.rotation.x=-.35;return arm; }
 
   async buildFrogKnight(ringColor){
-    try {
-      const rig = usesImportedFrog(this.profile?.appearance?.frog)
-        ? await createSwampFrogRig({ ringColor, species:this.profile?.appearance?.frog })
-        : await createMeshyFrogKnightRig({ ringColor });
-      rig.userData.syncGear?.(this.characterGear);
-      rig.userData.visualRoot = rig;
-      return rig;
-    } catch (err) {
-      console.warn('Meshy Frog Knight failed to load; falling back to procedural hero.', err);
-      const rig = createFrogKnightRig({ ringColor });
-      rig.userData.visualRoot = rig;
-      return rig;
-    }
+    const species=modelSpecies(this.profile?.appearance?.frog);
+    let rig;
+    try { rig=await createSwampFrogRig({ringColor,species}); }
+    catch(error){if(species==='tree')throw error;console.warn('Swamp Toad unavailable; loading Tree Frog.',error);rig=await createSwampFrogRig({ringColor,species:'tree'});}
+    rig.userData.syncGear?.(this.characterGear);rig.userData.visualRoot=rig;return rig;
   }
 
   buildEnemyFigure(bodyColor, cloakColor, ringColor, eye, bladeColor){
@@ -2319,10 +2310,10 @@ class World3D extends HTMLElement {
         this.slide(this.playerObj, dir, speed * dt * (this.blocking ? 0.45 : 1) * (this.act_ ? 0.25 : 1) * (this.slowT>0 ? .5 : 1));
         if (fighting && this.lockOn && this.lockOn.hp > 0) this.faceObj(this.playerObj, this.lockOn.obj.position);
         else this.playerObj.rotation.y = Math.atan2(dir.x, dir.z);
-        p.y = this.groundY(p) + Math.abs(Math.sin(time * 9)) * 0.045;
+        p.y = this.groundY(p); // Imported animation supplies body motion above the grounded root.
       } else {
         if (fighting && this.lockOn && this.lockOn.hp > 0) this.faceObj(this.playerObj, this.lockOn.obj.position);
-        p.y = this.groundY(p) + Math.sin(time * 1.6) * 0.015;
+        p.y = this.groundY(p);
       }
     }
     p.y = Math.max(p.y, this.groundY(p));

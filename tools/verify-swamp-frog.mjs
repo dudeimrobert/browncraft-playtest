@@ -30,3 +30,15 @@ a.userData.syncGear({equipped:{mainHand:'rusty_sword',offhand:'wooden_guard'}});
 a.userData.syncGear({equipped:{}});assert.ok(!a.userData.weapon.visible&&!a.userData.shield.visible);
 assert.equal(a.userData.weapon.parent,a.userData.bones.hand_r);assert.equal(a.userData.shield.parent,a.userData.bones.hand_l);
 console.log('PASS: actual Swamp Frog skin, 27 clips sampled, independent cloned skeletons, in-place root, pose adapters, equipment sockets and unequip visibility.');
+
+for(const name of ['Idle_Sword','Walk','Run_Anime','Sword_Attack_RM','Spell_Simple_Idle'])for(const time of [0,.2,.4,.6,.8,1]){
+ a.scale.set(1.3,1.15,.9);a.position.set(3,2,5);a.rotation.y=.7;a.userData.poseNative(name,time);
+ const y=a.userData.grounding.lowestFeet();assert.ok(Math.abs(y)<1e-5,`${name}: foot height ${y}`);
+}
+if(!tree){a.userData.poseNative('Idle_Sword',.3);assert.equal(a.userData.activeClip,'Idle_Sword','native stance must retain priority');}
+console.log('PASS: feet contact root ground plane across idle, walk, run, attack, and cast with transformed roots.');
+// Independent full-skin check and optional geometry snapshot for visual review.
+a.scale.set(1,1,1);a.position.set(0,0,0);a.rotation.set(0,0,0);
+for(const name of ['Idle_Sword','Walk','Run_Anime'])for(const time of [0,.25,.5,.75]){a.userData.poseNative(name,time);const mesh=a.userData.meshyMesh;let lowest=Infinity;for(let i=0;i<mesh.geometry.attributes.position.count;i++){mesh.getVertexPosition(i,v);v.applyMatrix4(mesh.matrixWorld);lowest=Math.min(lowest,v.y);}assert.ok(lowest>-.005&&lowest<.005,`${name}: full skin minimum ${lowest}`);}
+if(process.argv.includes('--snapshot')){a.userData.poseNative('Idle_Sword',.25);const mesh=a.userData.meshyMesh,vertices=[];for(let i=0;i<mesh.geometry.attributes.position.count;i++){mesh.getVertexPosition(i,v);v.applyMatrix4(mesh.matrixWorld);vertices.push(v.toArray());}fs.writeFileSync(new URL(`../../${tree?'tree':'toad'}-ground.json`,import.meta.url),JSON.stringify({vertices,indices:Array.from(mesh.geometry.index.array)}));}
+console.log('PASS: complete animated body touches the ground without penetrating, independently of the foot selector.');

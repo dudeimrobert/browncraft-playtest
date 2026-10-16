@@ -1,9 +1,8 @@
-import {CATALOG,ITEM_BY_ID,SLOTS,equip as equipItem,unequip as unequipItem,equipmentStats,stackRows,rollLoot,formatStats,itemDescription,occupiedSlots} from './assets/items.js?v=2.6.7';
-import { createSpeciesPreview } from './assets/species-preview.js?v=2.6.7';
-import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.7';
+import {ITEM_BY_ID,SLOTS,equip as equipItem,unequip as unequipItem,equipmentStats,stackRows,rollLoot,formatStats,itemDescription,occupiedSlots} from './assets/items.js?v=2.6.8';
+import { createSpeciesPreview } from './assets/species-preview.js?v=2.6.8';
+import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.8';
 import * as THREE from 'three';
-import { createFrogKnightRig, poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.7';
-import { createMeshyFrogKnightRig } from './assets/meshy-frog-rig.js?v=2.6.7';
+import { poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.8';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');
@@ -43,7 +42,7 @@ function createEquipmentViewer(){
   function resize(){const r=host.getBoundingClientRect();if(r.width&&r.height){renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}}
   new ResizeObserver(resize).observe(host);
   let time=0;function loop(){requestAnimationFrame(loop);if(!bag.hidden){time+=.016;if(!drag)model.rotation.y+=spin;resetFrogRigPose(model);poseFrogRigIdle(model,time,1,false);updateFrogRigSecondary(model,.016,{move:0,action:0,time});renderer.render(scene,camera);}}loop();
-  equipmentViewer={sync(profile){viewerProfile=profile;speciesViewer.select(profile?.appearance?.frog).catch(e=>console.error('Swamp Toad equipment model failed',e));const f=FROGS[profile?.appearance?.frog]||FROGS.tree;const a=profile?.appearance||{};const base=model.userData.customization?.overallScale||1;model.scale.set(base*1.12*f.scale*f.wide*(Number(a.build||100)/100),base*1.12*f.scale*(.93+.07*(Number(a.head||110)/110)),base*1.12*f.scale*(Number(a.build||100)/100));if(model.userData.materials?.frog?.color)model.userData.materials.frog.color.set(a.color||f.color);if(model.userData.materials?.belly?.color)model.userData.materials.belly.color.set(a.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);if(model.userData.nativeAnimations)model.userData.syncGear(getGear(profile));else applyPreviewStarterVisuals(model,profile?.discipline||'knight');resize();}};
+  equipmentViewer={sync(profile){viewerProfile=profile;speciesViewer.select(profile?.appearance?.frog).catch(e=>console.error('Swamp Toad equipment model failed',e));const f=FROGS[profile?.appearance?.frog==='toad'?'toad':'tree'];const a=profile?.appearance||{};const base=model.userData.customization?.overallScale||1;model.scale.set(base*1.12*f.scale*f.wide*(Number(a.build||100)/100),base*1.12*f.scale*(.93+.07*(Number(a.head||110)/110)),base*1.12*f.scale*(Number(a.build||100)/100));if(model.userData.materials?.frog?.color)model.userData.materials.frog.color.set(a.color||f.color);if(model.userData.materials?.belly?.color)model.userData.materials.belly.color.set(a.color||f.color).lerp(new THREE.Color('#d1c5a1'),.55);if(model.userData.nativeAnimations)model.userData.syncGear(getGear(profile));else applyPreviewStarterVisuals(model,profile?.discipline||'knight');resize();}};
   return equipmentViewer;
 }
 function renderBag(){
@@ -768,7 +767,7 @@ function ensurePreview(){
   let t=0; function loop(){
     requestAnimationFrame(loop); t+=.016;
     if(!dragging){ model.rotation.y+=velocity; velocity*=.96; if(Math.abs(velocity)<.0012)velocity=.0012; }
-    model.position.y=(model.userData.importedMesh?-.70:0)+Math.sin(t*1.7)*.012;
+    model.position.y=-.70; // Match the preview floor; animation supplies its own movement.
     resetFrogRigPose(model);
     const cycle=t%7.2;
     if(cycle>5.65 && cycle<6.45) poseFrogRigAttack(model,'light',(cycle-5.65)/.80);
@@ -779,7 +778,7 @@ function ensurePreview(){
   function applyFrog(cfg){
     creatorAppearance=cfg||creatorAppearance;
     speciesCreator.select(creatorAppearance.frog).catch(e=>console.error('Swamp Toad creation model failed',e));
-    const f=FROGS[cfg?.frog]||FROGS.tree;
+    const f=FROGS[cfg?.frog==='toad'?'toad':'tree'];
     const head=(Number(cfg?.head)||110)/110,build=(Number(cfg?.build)||100)/100;
     const base=model.userData.customization?.overallScale||1;
     model.scale.set(base*1.12*f.scale*f.wide*build,base*1.12*f.scale*(.93+.07*head),base*1.12*f.scale*build);
@@ -791,7 +790,7 @@ function ensurePreview(){
   applyFrog({frog:'tree',head:110,build:100,color:FROGS.tree.color});
 }
 function buildPreviewFrog(){
-  const g = createFrogKnightRig({ ringColor: 0xc9a15a, preview: true });
+  const g = new THREE.Group(); // Empty only while the real model loads.
   g.scale.setScalar((g.userData.customization?.overallScale || 1) * 1.12);
   g.rotation.y = -0.12;
   return g;
@@ -833,12 +832,3 @@ function renderBossDialog(s){
 }
 bossDialog.querySelector('button').addEventListener('click',()=>world?.act('boss-intro-close'));
 bossDialog.addEventListener('cancel',e=>{e.preventDefault();world?.act('boss-intro-close');});
-
-// Read-only catalog: discovery does not grant items or alter character saves.
-const catalogDialog=document.createElement('dialog');catalogDialog.className='catalog-dialog';catalogDialog.setAttribute('aria-labelledby','catalogTitle');
-catalogDialog.innerHTML='<header><div><small>BROWNCRAFT FIELD GUIDE</small><h2 id="catalogTitle">Item catalog</h2></div><button id="catalogClose" aria-label="Close item catalog">×</button></header><p>Flat equipment stats are active. Special effects, sets, consumable actions, and fitted armor visuals are pending.</p><label>Search items <input id="catalogSearch" type="search" placeholder="Name, rarity, or category"></label><small id="catalogCount"></small><div id="catalogRows"></div>';
-document.body.appendChild(catalogDialog);
-function renderCatalog(){const term=catalogDialog.querySelector('input').value.trim().toLowerCase();const rows=CATALOG.filter(i=>`${i.name} ${i.rarity} ${i.category} ${i.slot||''}`.toLowerCase().includes(term));catalogDialog.querySelector('#catalogCount').textContent=`${rows.length} of ${CATALOG.length} items`;catalogDialog.querySelector('#catalogRows').innerHTML=rows.map(i=>`<article data-rarity="${i.rarity}"><strong>${i.icon} ${esc(i.name)}</strong><small>${esc(i.rarity)} · ${esc(i.category)} · ${esc(i.slot||'Carried item')} · Level ${i.level_required}</small><p>${esc(i.stat)}</p>${i.effects.length?`<p class="pending-effects">Planned effects (inactive): ${esc(i.effects.join('; '))}</p>`:''}<small>${esc(i.loot_pools.join(' · '))}</small></article>`).join('');}
-q('#itemCatalogBtn').onclick=()=>{hideBagTooltip();renderCatalog();catalogDialog.showModal();catalogDialog.querySelector('input').focus();};
-catalogDialog.querySelector('#catalogClose').onclick=()=>catalogDialog.close();catalogDialog.querySelector('input').oninput=renderCatalog;
-catalogDialog.addEventListener('keydown',e=>e.stopPropagation());
