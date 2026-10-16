@@ -1,3 +1,7 @@
+# Alpha 2.6.9: first modular shroud armor test
+
+Read SHROUD_ARMOR_TEST.md. Open rig-test.html through a local HTTP server to test both frog bodies without changing a save.
+
 # Browncraft Alpha 2.5.2
 
 From the extracted project folder:

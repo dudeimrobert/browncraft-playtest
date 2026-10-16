@@ -1,11 +1,11 @@
-import {modelSpecies} from './species-preview.js?v=2.6.8';
-import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.8';
+import {modelSpecies} from './species-preview.js?v=2.6.9';
+import { createSwampFrogRig } from './swamp-frog-rig.js?v=2.6.9';
 import { captureLevel, applyProject, loadProject } from './level-project.js';
-import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.8';
+import { REALMS, realmInfo, normalizeProgress, realmChoices, canTraverse, realmUnlocked } from './pootal-progression.js?v=2.6.9';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.8';
+import { poseFrogRigIdle, poseFrogRigWalk, poseFrogRigBlock, poseFrogRigAttack, poseFrogRigCast, poseFrogRigFlask, poseFrogRigDodge, poseFrogRigHit, updateFrogRigSecondary, resetFrogRigPose } from './frog-rig.js?v=2.6.9';
 
 const TILE = 2;
 const DEFAULT_COLS = 30, DEFAULT_ROWS = 53;

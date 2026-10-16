@@ -1,8 +1,8 @@
-import {ITEM_BY_ID,SLOTS,equip as equipItem,unequip as unequipItem,equipmentStats,stackRows,rollLoot,formatStats,itemDescription,occupiedSlots} from './assets/items.js?v=2.6.8';
-import { createSpeciesPreview } from './assets/species-preview.js?v=2.6.8';
-import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.8';
+import {ITEM_BY_ID,SLOTS,equip as equipItem,unequip as unequipItem,equipmentStats,stackRows,rollLoot,formatStats,itemDescription,occupiedSlots} from './assets/items.js?v=2.6.9';
+import { createSpeciesPreview } from './assets/species-preview.js?v=2.6.9';
+import { createSwampFrogRig } from './assets/swamp-frog-rig.js?v=2.6.9';
 import * as THREE from 'three';
-import { poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.8';
+import { poseFrogRigIdle, poseFrogRigAttack, resetFrogRigPose, updateFrogRigSecondary } from './assets/frog-rig.js?v=2.6.9';
 
 const q = s => document.querySelector(s);
 const entry = q('#entry');

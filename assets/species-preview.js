@@ -1,4 +1,4 @@
-import {createSwampFrogRig} from './swamp-frog-rig.js?v=2.6.8';
+import {createSwampFrogRig} from './swamp-frog-rig.js?v=2.6.9';
 export const usesSwampFrog = species => species === 'toad';
 export const modelSpecies = species => usesSwampFrog(species) ? 'toad' : 'tree';
 export const usesImportedFrog = () => true;
